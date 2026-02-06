@@ -11,7 +11,7 @@ import { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
 import compression from 'compression';
-import { I18nValidationExceptionFilter, I18nValidationPipe } from 'nestjs-i18n';
+import { ZodValidationPipe } from 'nestjs-zod';
 import { ResponseInterceptor } from '../application/http/common/interceptors/response.interceptor';
 import { envConfig } from './env.config';
 import { createSessionConfig } from './session.config';
@@ -56,22 +56,7 @@ export class AppConfig {
     await app.register(fastifyCookie);
     await app.register(fastifySession, await createSessionConfig());
 
-    app.useGlobalPipes(
-      new I18nValidationPipe({
-        transform: true,
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transformOptions: {
-          enableImplicitConversion: true,
-        },
-      }),
-    );
-
-    app.useGlobalFilters(
-      new I18nValidationExceptionFilter({
-        detailedErrors: true,
-      }),
-    );
+    app.useGlobalPipes(new ZodValidationPipe());
 
     app.useGlobalInterceptors(
       new ResponseInterceptor(),
@@ -158,7 +143,7 @@ export class AppConfig {
         'RESTful API with NestJS and Fastify.\n\n' +
         '## Features\n\n' +
         '- **Redis Cache**: Full cache support with multiple strategies\n' +
-        '- **Validation**: Automatic DTO validation with class-validator\n' +
+        '- **Validation**: Type-safe validation with Zod and nestjs-zod\n' +
         '- **Security**: Helmet configured for common vulnerabilities protection\n' +
         '- **Performance**: Fastify for maximum performance\n\n',
       )
