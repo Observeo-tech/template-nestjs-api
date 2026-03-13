@@ -1,30 +1,71 @@
-import type { Knex } from "knex";
+import {
+  MigrationInterface,
+  QueryRunner,
+  Table,
+  TableIndex,
+} from 'typeorm';
 
-/**
- * Create users table migration
- *
- * Creates the users table with:
- * - UUID primary key
- * - Email (unique)
- * - Password (hashed with bcrypt)
- * - Name
- * - Timestamps
- */
-export async function up(knex: Knex): Promise<void> {
-  await knex.schema.createTable('users', (table) => {
-    table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
-    table.string('email', 255).notNullable().unique();
-    table.string('password', 255).notNullable();
-    table.string('name', 255).notNullable();
-    table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
-    table.timestamp('updated_at').notNullable().defaultTo(knex.fn.now());
+export class CreateUsersTable20260206193945 implements MigrationInterface {
+  name = 'CreateUsersTable20260206193945';
 
-    // Indexes
-    table.index('email');
-  });
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
+
+    await queryRunner.createTable(
+      new Table({
+        name: 'users',
+        columns: [
+          {
+            name: 'id',
+            type: 'uuid',
+            isPrimary: true,
+            default: 'gen_random_uuid()',
+          },
+          {
+            name: 'email',
+            type: 'varchar',
+            length: '255',
+            isNullable: false,
+            isUnique: true,
+          },
+          {
+            name: 'password',
+            type: 'varchar',
+            length: '255',
+            isNullable: false,
+          },
+          {
+            name: 'name',
+            type: 'varchar',
+            length: '255',
+            isNullable: false,
+          },
+          {
+            name: 'created_at',
+            type: 'timestamp',
+            default: 'now()',
+          },
+          {
+            name: 'updated_at',
+            type: 'timestamp',
+            default: 'now()',
+          },
+        ],
+      }),
+      true,
+    );
+
+    await queryRunner.createIndex(
+      'users',
+      new TableIndex({
+        name: 'IDX_users_email',
+        columnNames: ['email'],
+      }),
+    );
+  }
+
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.dropIndex('users', 'IDX_users_email');
+    await queryRunner.dropTable('users');
+  }
 }
-
-export async function down(knex: Knex): Promise<void> {
-  await knex.schema.dropTableIfExists('users');
-}
-

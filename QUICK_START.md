@@ -1,4 +1,4 @@
-# 🚀 Quick Start - Auth com nestjs-zod
+# 🚀 Quick Start - Auth + Users com NICOT
 
 ## 📋 O que foi implementado
 
@@ -6,7 +6,8 @@
 ✅ Módulo de autenticação completo com Clean Architecture
 ✅ Padrão Use Cases aplicado
 ✅ Exemplo de login com validação Zod
-✅ Migration e seed para tabela users
+✅ Migração de banco para TypeORM
+✅ CRUD de `users` com NICOT
 ✅ Documentação completa
 
 ## 🎯 Estrutura Criada
@@ -22,6 +23,12 @@ src/
 ├── infrastructure/auth/
 │   ├── repositories/user.repository.ts
 │   └── auth-infrastructure.module.ts
+│
+├── application/http/users/
+│   ├── users.controller.ts
+│   ├── users.factory.ts
+│   ├── users.module.ts
+│   └── users.service.ts
 │
 └── application/http/auth/
     ├── dtos/
@@ -45,7 +52,7 @@ npm run migrate:latest
 
 ### 3. Popular com dados de teste
 ```bash
-npm run seed:run
+npm run migrate:latest
 ```
 
 ### 4. Iniciar servidor
@@ -82,7 +89,25 @@ curl -X POST http://localhost:3000/auth/login \
 }
 ```
 
-### 6. Testar validação Zod
+### 6. Testar CRUD de users
+
+**Criar usuário:**
+```bash
+curl -X POST http://localhost:3000/users \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "password123",
+    "name": "Test User"
+  }'
+```
+
+**Listar usuários:**
+```bash
+curl "http://localhost:3000/users?pageCount=1&recordsPerPage=10"
+```
+
+### 7. Testar validação Zod
 
 **Email inválido:**
 ```bash
@@ -113,16 +138,6 @@ curl -X POST http://localhost:3000/auth/login \
   }
 }
 ```
-
-## 👥 Usuários de Teste
-
-Após rodar `npm run seed:run`:
-
-| Email | Senha | Nome |
-|-------|-------|------|
-| admin@example.com | password123 | Admin User |
-| user@example.com | password123 | Test User |
-| demo@example.com | password123 | Demo User |
 
 ## 📚 Documentação
 
@@ -222,7 +237,7 @@ npm run build
 ### Banco não conecta
 ```bash
 docker-compose down
-npm run dependencies
+npm run dev:dependencies
 ```
 
 ### Migration não roda

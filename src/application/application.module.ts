@@ -3,9 +3,10 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuthModule } from './http/auth/auth.module';
 import { AuthGuard } from './http/common/guards/auth.guard';
 import { HttpCacheInterceptor, SessionStorageInterceptor } from './http/common/interceptors';
+import { UsersModule } from './http/users/users.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, UsersModule],
   providers: [
     {
       provide: APP_GUARD,

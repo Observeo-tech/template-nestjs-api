@@ -173,16 +173,19 @@ CREATE TABLE users (
 );
 ```
 
-### 2. Rodar Seed (Opcional)
+### 2. Criar um usuário inicial
 
 ```bash
-npm run seed:run
+curl -X POST http://localhost:3000/users \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "password123",
+    "name": "Test User"
+  }'
 ```
 
-Cria usuários de teste:
-- `admin@example.com` / `password123`
-- `user@example.com` / `password123`
-- `demo@example.com` / `password123`
+Isso usa o CRUD transacional do NICOT e já cria um usuário compatível com o fluxo de login.
 
 ## 🧪 Testando a API
 

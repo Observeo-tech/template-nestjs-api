@@ -1,71 +1,32 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { User } from '@/domain/auth/entities/user.entity';
 import { IUserRepository } from '@/domain/auth/repositories/user.repository.interface';
-import { BaseRepository } from '@/infrastructure/database/base-repository';
+import { Repository } from 'typeorm';
 
-/**
- * User Repository Implementation
- *
- * Implements IUserRepository using Knex and PostgreSQL
- */
 @Injectable()
-export class UserRepository extends BaseRepository implements IUserRepository {
-  private readonly tableName = 'users';
+export class UserRepository implements IUserRepository {
+  constructor(
+    @InjectRepository(User)
+    private readonly repo: Repository<User>,
+  ) {}
 
-  /**
-   * Find user by email
-   */
   async findByEmail(email: string): Promise<User | null> {
-    const user = await this.db
-      .table(this.tableName)
-      .where({ email })
-      .first();
-
-    if (!user) {
-      return null;
-    }
-
-    return new User(user);
+    return this.repo.findOne({
+      where: { email },
+    });
   }
 
-  /**
-   * Find user by ID
-   */
   async findById(id: string): Promise<User | null> {
-    const user = await this.db
-      .table(this.tableName)
-      .where({ id })
-      .first();
-
-    if (!user) {
-      return null;
-    }
-
-    return new User(user);
+    return this.repo.findOne({
+      where: { id },
+    });
   }
 
-  /**
-   * Create a new user
-   */
   async create(
     userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>,
   ): Promise<User> {
-    const [user] = await this.db
-      .table(this.tableName)
-      .insert({
-        ...userData,
-        created_at: this.fn.now(),
-        updated_at: this.fn.now(),
-      })
-      .returning('*');
-
-    return new User({
-      id: user.id,
-      email: user.email,
-      password: user.password,
-      name: user.name,
-      createdAt: user.created_at,
-      updatedAt: user.updated_at,
-    });
+    const entity = this.repo.create(userData);
+    return this.repo.save(entity);
   }
 }
