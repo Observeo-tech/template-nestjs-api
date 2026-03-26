@@ -4,32 +4,11 @@ import { LoginUseCase } from '@/modules/auth/application/use-cases/login.use-cas
 import { ApiDoc, Public } from '@/shared/http/decorators';
 import { AuthResponseDto, LoginDto } from '../dtos';
 
-/**
- * Authentication Controller
- *
- * Handles authentication endpoints inside the auth feature slice.
- */
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly loginUseCase: LoginUseCase) { }
 
-  /**
-   * Login endpoint
-   *
-   * Authenticates a user with email and password.
-   * Uses Zod for automatic request validation.
-   *
-   * @param loginDto - Login credentials (email, password)
-   * @returns User data and authentication token
-   *
-   * @example
-   * POST /auth/login
-   * {
-   *   "email": "user@example.com",
-   *   "password": "myPassword123"
-   * }
-   */
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)

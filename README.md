@@ -9,10 +9,10 @@ Este README foi ajustado para refletir o estado real do projeto hoje. A base já
 ### O que já existe
 
 - Bootstrap com `NestJS + Fastify`
-- PostgreSQL com `Knex`
+- PostgreSQL com `Knex + Objection.js`
 - Redis conectado para `session`, `cache`, `Bull` e adapter de `socket.io`
 - Módulo `auth` com `POST /auth/login`
-- Módulo `users` com CRUD via `use-cases + Knex`
+- Módulo `users` com CRUD via `use-cases + Objection.js`
 - Swagger JSON/YAML e interface Scalar em `/docs`
 - Inferência automática de envelopes de resposta para a documentação
 
@@ -35,6 +35,7 @@ Arquivos como `QUICK_START.md`, `AUTH_EXAMPLE.md` e `ZOD_MIGRATION_GUIDE.md` des
 - `NestJS 11`
 - `Fastify`
 - `Knex`
+- `Objection.js`
 - `PostgreSQL`
 - `Redis`
 - `Bull`
@@ -72,7 +73,8 @@ src/
 - `users`
   - expõe CRUD HTTP
   - usa `Zod` + `use-cases` explícitos
-  - persiste `User` com `Knex`
+  - persiste `User` com `Objection.js` sobre `Knex`
+  - usa conversão global `camelCase <-> snake_case` na camada de banco
 - `shared/infrastructure`
   - centraliza banco, cache, fila e session storage
 
@@ -125,12 +127,11 @@ Ela cria apenas a tabela `users`.
 ### 5. Inicie a aplicação
 
 ```bash
-npm run dev
+npm run start:dev
 ```
 
 Observação sobre scripts:
 
-- `npm run dev` sobe Docker, executa migrations e inicia watch mode
 - `npm run start:dev` executa migrations e inicia watch mode, assumindo dependências já disponíveis
 
 ## Endpoints Disponíveis
@@ -220,7 +221,6 @@ npm run new:module -- product-categories --entity product-category
 npm run new:module -- reports --dry-run
 
 # desenvolvimento
-npm run dev
 npm run start:dev
 
 # build

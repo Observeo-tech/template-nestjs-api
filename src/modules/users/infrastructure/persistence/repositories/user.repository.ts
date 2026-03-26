@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { User } from '@/modules/users/domain/entities/user.entity';
 import {
   CreateUserData,
@@ -7,60 +7,24 @@ import {
   IUserRepository,
   UpdateUserData,
 } from '@/modules/users/domain/repositories/user.repository.interface';
-import { KNEX_CONNECTION } from '@/shared/infrastructure/database/database.constants';
-import { Knex } from 'knex';
-
-const USERS_TABLE = 'users';
-
-type UserRow = {
-  id: string;
-  email: string;
-  password: string;
-  name: string;
-  created_at: Date | string;
-  updated_at: Date | string;
-};
-
-function normalizeDate(value: Date | string): Date {
-  return value instanceof Date ? value : new Date(value);
-}
-
-function mapUser(row: UserRow): User {
-  return new User({
-    id: row.id,
-    email: row.email,
-    password: row.password,
-    name: row.name,
-    createdAt: normalizeDate(row.created_at),
-    updatedAt: normalizeDate(row.updated_at),
-  });
-}
+import { UserModel } from '../models/user.model';
 
 @Injectable()
 export class UserRepository implements IUserRepository {
-  constructor(
-    @Inject(KNEX_CONNECTION)
-    private readonly knex: Knex,
-  ) {}
-
   async findByEmail(email: string): Promise<User | null> {
-    const row = await this.knex<UserRow>(USERS_TABLE)
-      .where({ email })
-      .first();
+    const user = await UserModel.query().findOne({ email });
 
-    return row ? mapUser(row) : null;
+    return user ? user.toDomain() : null;
   }
 
   async findById(id: string): Promise<User | null> {
-    const row = await this.knex<UserRow>(USERS_TABLE)
-      .where({ id })
-      .first();
+    const user = await UserModel.query().findById(id);
 
-    return row ? mapUser(row) : null;
+    return user ? user.toDomain() : null;
   }
 
   async findAll(filters: FindAllUsersFilters): Promise<FindAllUsersResult> {
-    const query = this.knex<UserRow>(USERS_TABLE);
+    const query = UserModel.query();
 
     if (filters.id) {
       query.where('id', filters.id);
@@ -74,34 +38,29 @@ export class UserRepository implements IUserRepository {
       query.where('name', filters.name);
     }
 
-    const countResult = await query
-      .clone()
-      .count<{ total: string | number }>({ total: '*' })
-      .first();
+    const total = await query.clone().resultSize();
 
-    const rows = await query
+    const users = await query
       .clone()
       .select('*')
-      .orderBy('created_at', 'desc')
+      .orderBy('createdAt', 'desc')
       .offset((filters.pageCount - 1) * filters.recordsPerPage)
       .limit(filters.recordsPerPage);
 
     return {
-      data: rows.map(mapUser),
-      total: Number(countResult?.total ?? 0),
+      data: users.map(user => user.toDomain()),
+      total,
     };
   }
 
   async create(data: CreateUserData): Promise<User> {
-    const [row] = await this.knex<UserRow>(USERS_TABLE)
-      .insert({
-        email: data.email,
-        password: data.password,
-        name: data.name,
-      })
-      .returning('*');
+    const user = await UserModel.query().insertAndFetch({
+      email: data.email,
+      password: data.password,
+      name: data.name,
+    });
 
-    return mapUser(row);
+    return user.toDomain();
   }
 
   async update(id: string, data: UpdateUserData): Promise<User | null> {
@@ -123,21 +82,24 @@ export class UserRepository implements IUserRepository {
       return this.findById(id);
     }
 
-    const [row] = await this.knex<UserRow>(USERS_TABLE)
-      .where({ id })
-      .update({
-        ...updatePayload,
-        updated_at: this.knex.fn.now(),
-      })
-      .returning('*');
+    const knex = UserModel.knex();
 
-    return row ? mapUser(row) : null;
+    if (!knex) {
+      throw new Error('Objection is not bound to a Knex connection.');
+    }
+
+    const user = await UserModel.query().patchAndFetchById(id, {
+      ...updatePayload,
+      updatedAt: knex.fn.now(),
+    });
+
+    return user ? user.toDomain() : null;
   }
 
   async delete(id: string): Promise<boolean> {
-    const deletedRows = await this.knex(USERS_TABLE)
+    const deletedRows = await UserModel.query()
       .where({ id })
-      .del();
+      .delete();
 
     return deletedRows > 0;
   }

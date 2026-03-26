@@ -1,5 +1,14 @@
 import { envConfig } from '@/config/env.config';
 import { Knex } from 'knex';
+import { objectToCamel, toSnake } from 'ts-case-convert';
+
+function postProcessResponse(result: unknown) {
+  if (result === null || typeof result !== 'object') {
+    return result;
+  }
+
+  return objectToCamel(result as object);
+}
 
 export const knexConfig: Knex.Config = {
   client: 'pg',
@@ -17,4 +26,6 @@ export const knexConfig: Knex.Config = {
     min: 2,
     max: 10,
   },
+  postProcessResponse,
+  wrapIdentifier: (value, origImpl) => origImpl(toSnake(value)),
 };
