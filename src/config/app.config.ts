@@ -139,15 +139,7 @@ export class AppConfig {
     const config = new DocumentBuilder()
       .addServer(`http://localhost:${envConfig.port}`, 'Local server')
       .setTitle('API')
-      .setDescription(
-        '# API Documentation\n\n' +
-        'RESTful API with NestJS and Fastify.\n\n' +
-        '## Features\n\n' +
-        '- **Redis Cache**: Full cache support with multiple strategies\n' +
-        '- **Validation**: Type-safe validation with Zod and nestjs-zod\n' +
-        '- **Security**: Helmet configured for common vulnerabilities protection\n' +
-        '- **Performance**: Fastify for maximum performance\n\n',
-      )
+      .setDescription('# API Documentation')
       .setVersion('1.0')
       .build();
 

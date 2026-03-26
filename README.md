@@ -1,176 +1,267 @@
 # NestJS API Scaffold
 
-Template base para criação de APIs RESTful com NestJS, Fastify, PostgreSQL e Redis.
+Base para APIs REST com NestJS, Fastify, PostgreSQL e Redis, organizada em módulos `feature-first`.
+
+Este README foi ajustado para refletir o estado real do projeto hoje. A base já oferece bootstrap sólido de infraestrutura, documentação automática e exemplos de `auth` e `users`, mas ainda não fecha todos os fluxos de produto prometidos pela documentação antiga.
+
+## Estado Atual
+
+### O que já existe
+
+- Bootstrap com `NestJS + Fastify`
+- PostgreSQL com `TypeORM`
+- Redis conectado para `session`, `cache`, `Bull` e adapter de `socket.io`
+- Módulo `auth` com `POST /auth/login`
+- Módulo `users` com CRUD via `NICOT`
+- Swagger JSON/YAML e interface Scalar em `/docs`
+- Inferência automática de envelopes de resposta para a documentação
+
+### O que ainda está incompleto
+
+- O login valida email e senha, mas **não grava a sessão** e **não emite JWT**
+- O `AuthGuard` exige `request.session.authenticated` e `request.session.userId` para rotas protegidas
+- Na prática, o CRUD de `users` está protegido, mas a própria API ainda não oferece um fluxo completo para autenticar e então consumir essas rotas
+- A estratégia de validação está **mista**:
+  - `auth/login` e alguns DTOs de resposta usam `Zod`
+  - o CRUD entity-driven de `users` depende de decorators no entity e ainda usa `class-validator`
+- SMTP é validado no boot via ambiente, embora ainda não exista uma feature pública de email na base
+- `cache`, `queue` e `websocket` estão ligados na infraestrutura, mas não há exemplos de rota com cache, processor do Bull ou gateway socket implementados
+- Existe script `test:e2e`, mas não há pasta `test/` no repositório neste momento
+
+### Status da documentação auxiliar
+
+Arquivos como `QUICK_START.md`, `AUTH_EXAMPLE.md` e `ZOD_MIGRATION_GUIDE.md` descrevem uma visão mais otimista da base do que o código realmente entrega hoje. Até eles serem alinhados, trate este `README.md` como a referência principal.
 
 ## Stack
 
-- **Framework**: NestJS + Fastify
-- **Database**: PostgreSQL + TypeORM + NICOT
-- **Cache/Sessions**: Redis
-- **Queue**: Bull
-- **Validation**: nestjs-zod + DTOs entity-driven do NICOT
-- **Documentation**: Swagger + Scalar UI
+- `NestJS 11`
+- `Fastify`
+- `TypeORM`
+- `PostgreSQL`
+- `Redis`
+- `Bull`
+- `Socket.IO`
+- `nestjs-zod` + `zod`
+- `NICOT`
+- `Swagger` + `Scalar`
 
 ## Arquitetura
 
-```
+```text
 src/
 ├── modules/
 │   ├── auth/
-│   │   ├── application/
+│   │   ├── application/use-cases/
 │   │   └── presentation/http/
 │   └── users/
-│       ├── application/
+│       ├── application/services/
 │       ├── domain/
 │       ├── infrastructure/persistence/
 │       └── presentation/http/
 ├── shared/
-│   ├── http/           # Decorators, guards, helpers e interceptors globais
-│   ├── infrastructure/ # Database, cache, i18n, queue e websocket
+│   ├── http/
+│   ├── infrastructure/
 │   └── session-storage/
-└── config/             # Configurações da aplicação
+└── config/
 ```
 
-O template segue um modelo `feature-first`: cada módulo cresce em slices próprias e só cria `domain/` quando existe regra de negócio real. `users` concentra o agregado e sua persistência; `auth` depende desse contrato para o fluxo de login.
+### Módulos reais da base
+
+- `auth`
+  - expõe `POST /auth/login`
+  - usa `LoginUseCase`
+  - valida request com `Zod`
+  - compara senha com `bcrypt`
+- `users`
+  - expõe CRUD HTTP
+  - usa `RestfulFactory` e `TransactionalTypeOrmModule` do `NICOT`
+  - persiste `User` com `TypeORM`
+- `shared/infrastructure`
+  - centraliza banco, cache, fila, i18n e session storage
 
 ## Setup
 
-### 1. Clone e instale dependências
+### 1. Instale dependências
 
 ```bash
 npm install
 ```
 
-### 2. Configure variáveis de ambiente
+### 2. Configure ambiente
 
 ```bash
 cp .env.example .env
 ```
 
-### 3. Inicie os serviços (PostgreSQL + Redis)
+O arquivo `.env.example` já contém os valores locais esperados para PostgreSQL e Redis. Mesmo sem feature de email pronta, o projeto valida estas variáveis no startup:
+
+- `SESSION_SECRET`
+- `SMTP_HOST`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `APP_URL`
+
+### 3. Suba PostgreSQL e Redis
 
 ```bash
 npm run dev:dependencies
-# ou
+```
+
+ou
+
+```bash
 docker-compose up -d
 ```
 
-### 4. Execute as migrations
+### 4. Rode as migrations
 
 ```bash
 npm run migrate:latest
 ```
 
-### 5. Inicie o servidor
+Hoje existe uma migration inicial:
+
+- `20260206193945_create_users_table.ts`
+
+Ela cria apenas a tabela `users`.
+
+### 5. Inicie a aplicação
 
 ```bash
 npm run dev
 ```
 
-## Comandos
+Observação sobre scripts:
 
-```bash
-# Desenvolvimento
-npm run dev                 # Docker + migrations + watch mode
+- `npm run dev` sobe Docker, executa migrations e inicia watch mode
+- `npm run start:dev` executa migrations e inicia watch mode, assumindo dependências já disponíveis
 
-# Build
-npm run build
+## Endpoints Disponíveis
 
-# Lint
-npm run lint
+### Público
 
-# Testes
-npm test                    # Todos os testes
-npm run test:watch          # Watch mode
-npm run test:e2e            # Testes e2e
+- `POST /auth/login`
 
-# Migrations (TypeORM)
-npm run migrate:make nome   # Criar migration
-npm run migrate:latest      # Executar migrations
-npm run migrate:rollback    # Reverter última migration
-```
+Body:
 
-## Documentação
-
-- **Scalar UI**: http://localhost:3000/docs
-- **Swagger JSON**: http://localhost:3000/swagger/json
-- **Swagger YAML**: http://localhost:3000/swagger/yaml
-
-## Padrões
-
-### DTOs
-```typescript
-import { ApiProperty } from '@nestjs/swagger';
-import { i18nValidationMessage } from 'nestjs-i18n';
-
-export class CreateUserDto {
-  @ApiProperty()
-  @IsEmail({}, { message: i18nValidationMessage('validation.IS_EMAIL') })
-  email: string;
+```json
+{
+  "email": "user@example.com",
+  "password": "password123"
 }
 ```
 
-### Repositories
-```typescript
-@Injectable()
-export class UserRepository implements IUserRepository {
-  constructor(
-    @InjectRepository(User)
-    private readonly repo: Repository<User>,
-  ) {}
+Comportamento atual:
 
-  async findById(id: string): Promise<User | null> {
-    return this.repo.findOne({ where: { id } });
-  }
+- busca usuário por email
+- compara senha com `bcrypt`
+- retorna usuário sem senha
+- pode retornar `token`, mas hoje ele vem vazio porque não há emissão implementada
+- não marca a sessão como autenticada
 
-  async create(data: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) {
-    const entity = this.repo.create(data);
-    return this.repo.save(entity);
-  }
-}
+### Protegidos por sessão
+
+- `POST /users`
+- `GET /users`
+- `GET /users/:id`
+- `PATCH /users/:id`
+- `DELETE /users/:id`
+
+Essas rotas dependem do `AuthGuard`, que hoje espera:
+
+```ts
+request.session.authenticated === true
+request.session.userId
 ```
 
-### Controllers
-```typescript
-@Controller('users')
-export class UserController {
-  @Get(':id')
-  @ApiDoc({ summary: 'Get user by ID' })
-  async findOne(@UsersResource.idParam() id: string) {
-    const result = await this.userService.findOne(id);
-    return ResponseHelper.success(result.data, result.message);
-  }
+Como o login ainda não popula esses campos, o fluxo completo de autenticação/autorização ainda precisa ser concluído.
 
-  @Post()
-  @UseInterceptors(TransactionalTypeOrmInterceptor())
-  async create(@UsersResource.createParam() dto: CreateUserDto) {
-    const result = await this.userService.create(dto);
-    return ResponseHelper.success(result.data, result.message);
-  }
-}
-```
+## Documentação da API
 
-### NICOT + transação request-scoped
+- Scalar UI: `http://localhost:3000/docs`
+- Swagger JSON: `http://localhost:3000/swagger/json`
+- Swagger YAML: `http://localhost:3000/swagger/yaml`
 
-- `TransactionalTypeOrmModule.forFeature([User])` fornece o repositório transacional do NICOT.
-- `@InjectTransactionalRepository(User)` deve ser usado nos serviços CRUD gerados pelo NICOT.
-- `@UseInterceptors(TransactionalTypeOrmInterceptor())` deve ficar apenas nos endpoints de escrita.
-- `auth/login` continua customizado e usa `InjectRepository(User)` normalmente, fora do contexto transacional request-scoped.
+## Padrões que a base já demonstra
 
-### Decorators Disponíveis
-- `@Public()` - Marca rota como pública (sem autenticação)
-- `@CurrentUser()` - Obtém usuário da sessão
-- `@ApiDoc()` - Documentação automática para Scalar/Swagger com inferência do retorno do controller
-- `@CacheKey()` / `@CacheTTL()` - Cache de resposta
+### Resposta HTTP padronizada
 
-## Estrutura de Resposta
+As respostas seguem envelope neste formato:
 
 ```json
 {
   "success": true,
-  "data": { ... },
+  "data": {},
   "message": "Optional message",
-  "meta": { "page": 1, "limit": 10, "total": 100 },
-  "timestamp": "2024-01-01T00:00:00.000Z"
+  "meta": {
+    "page": 1,
+    "limit": 10,
+    "total": 100,
+    "totalPages": 10,
+    "hasNextPage": true,
+    "hasPrevPage": false
+  },
+  "timestamp": "2026-03-26T00:00:00.000Z"
 }
 ```
+
+### Documentação com `@ApiDoc()`
+
+O projeto possui um decorator customizado para reduzir boilerplate no Swagger e um mecanismo adicional que infere o schema real da resposta a partir do source code dos controllers.
+
+### Sessions e contexto por request
+
+- sessão Fastify persistida no Redis
+- `AsyncLocalStorage` para compartilhar a sessão ao longo do request
+
+## Comandos Úteis
+
+```bash
+# desenvolvimento
+npm run dev
+npm run start:dev
+
+# build
+npm run build
+
+# lint
+npm run lint
+
+# testes
+npm test
+npm run test:watch
+npm run test:cov
+npm run test:e2e
+
+# migrations
+npm run migrate:latest
+npm run migrate:rollback
+npm run migrate:status
+```
+
+## Testes
+
+O repositório contém hoje um teste unitário em:
+
+- `src/config/swagger-response-inference.spec.ts`
+
+Ele cobre a inferência de schemas para a documentação. Não há suíte e2e versionada neste momento.
+
+## Limitações Conhecidas
+
+- Sem JWT implementado
+- Sem persistência de login na sessão
+- Sem endpoint de registro/bootstrap público
+- Sem seed inicial de usuário
+- Sem exemplos reais de fila, cache aplicado em endpoint ou websocket gateway
+- Migração para Zod ainda não é total
+- Variáveis de SMTP são obrigatórias mesmo sem fluxo de email exposto
+- O script `migrate:make` usa `%npm_config_name%`, então pode exigir ajuste para funcionar bem em shells Unix/WSL
+
+## Próximos Passos Recomendados
+
+1. Concluir a autenticação de fato: sessão ou JWT, mas de forma consistente
+2. Criar um fluxo inicial de bootstrap de usuário ou seed
+3. Decidir se a validação da base será totalmente `Zod` ou continuará híbrida com `NICOT`
+4. Tornar email opcional no boot ou implementar a feature que justifique as variáveis obrigatórias
+5. Adicionar testes e2e reais para `auth` e `users`

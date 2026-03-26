@@ -109,7 +109,8 @@ export class LoginDto extends createZodDto(LoginSchema) {}
 
 ### Vantagens do Zod sobre class-validator
 
-#### class-validator (antes):
+#### class-validator (antes)
+
 ```typescript
 export class LoginDto {
   @IsEmail()
@@ -123,7 +124,8 @@ export class LoginDto {
 }
 ```
 
-#### nestjs-zod (agora):
+#### nestjs-zod (agora)
+
 ```typescript
 export const LoginSchema = z.object({
   email: z.string().email().transform(val => val.toLowerCase()),
@@ -134,6 +136,7 @@ export class LoginDto extends createZodDto(LoginSchema) {}
 ```
 
 **Benefícios:**
+
 - ✅ Type inference automático
 - ✅ Transformações built-in
 - ✅ Schema reutilizável
@@ -150,6 +153,7 @@ npm run migrate:latest
 ```
 
 Cria a tabela `users`:
+
 ```sql
 CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -186,6 +190,7 @@ npm run dev
 ### 2. Fazer login
 
 **Request:**
+
 ```bash
 curl -X POST http://localhost:3000/auth/login \
   -H "Content-Type: application/json" \
@@ -196,6 +201,7 @@ curl -X POST http://localhost:3000/auth/login \
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -216,6 +222,7 @@ curl -X POST http://localhost:3000/auth/login \
 ### 3. Testar validação
 
 **Request com email inválido:**
+
 ```bash
 curl -X POST http://localhost:3000/auth/login \
   -H "Content-Type: application/json" \
@@ -226,6 +233,7 @@ curl -X POST http://localhost:3000/auth/login \
 ```
 
 **Response (400 Bad Request):**
+
 ```json
 {
   "success": false,
@@ -248,19 +256,24 @@ curl -X POST http://localhost:3000/auth/login \
 ## 📚 Documentação Swagger
 
 Acesse a documentação interativa em:
-- **Scalar UI**: http://localhost:3000/docs
-- **Swagger JSON**: http://localhost:3000/swagger/json
+
+- **Scalar UI**: <http://localhost:3000/docs>
+- **Swagger JSON**: <http://localhost:3000/swagger/json>
 
 ## 🎓 Princípios SOLID Aplicados
 
 ### Single Responsibility
+
 Cada classe tem uma única responsabilidade:
+
 - `LoginUseCase`: Apenas lógica de login
 - `UserRepository`: Apenas acesso a dados de usuários
 - `AuthController`: Apenas manipulação de HTTP
 
 ### Dependency Inversion
+
 Use cases dependem de abstrações (interfaces), não de implementações:
+
 ```typescript
 constructor(
   @Inject(USER_REPOSITORY)
@@ -269,7 +282,9 @@ constructor(
 ```
 
 ### Open/Closed
+
 Fácil adicionar novos use cases sem modificar código existente:
+
 ```typescript
 // Adicionar RegisterUseCase
 export class RegisterUseCase {
@@ -289,6 +304,7 @@ export class RegisterUseCase {
 ### Exemplo: Register Use Case
 
 1. **Criar DTO com Zod:**
+
 ```typescript
 // dtos/register.dto.ts
 export const RegisterSchema = z.object({
@@ -300,7 +316,8 @@ export const RegisterSchema = z.object({
 export class RegisterDto extends createZodDto(RegisterSchema) {}
 ```
 
-2. **Criar Use Case:**
+1. **Criar Use Case:**
+
 ```typescript
 // use-cases/register.use-case.ts
 @Injectable()
@@ -320,22 +337,14 @@ export class RegisterUseCase {
 }
 ```
 
-3. **Adicionar no Controller:**
+1. **Adicionar no Controller:**
+
 ```typescript
 @Post('register')
 async register(@Body() registerDto: RegisterDto) {
   return await this.registerUseCase.execute(registerDto);
 }
 ```
-
-## 🚀 Próximos Passos
-
-- [ ] Implementar JWT tokens
-- [ ] Adicionar refresh tokens
-- [ ] Implementar guards de autorização
-- [ ] Adicionar rate limiting
-- [ ] Implementar 2FA
-- [ ] Adicionar testes unitários e E2E
 
 ## 📖 Referências
 
