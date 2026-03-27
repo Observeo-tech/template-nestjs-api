@@ -56,7 +56,7 @@ export class WsGateway
       this.logger.warn(`Conexao WS rejeitada. socket=${client.id}`);
       client.emit('ws:error', {
         code: 'UNAUTHORIZED',
-        message: 'Usuario nao autenticado',
+        message: 'Usuario não autenticado',
       });
       client.disconnect(true);
       return;

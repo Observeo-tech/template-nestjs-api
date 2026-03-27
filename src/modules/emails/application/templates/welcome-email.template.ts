@@ -2,7 +2,7 @@ import { envConfig } from '@/config/env.config';
 import type { SendEmailJobData, WelcomeEmailInput } from '../types/send-email-job.type';
 
 export function buildWelcomeEmail(input: WelcomeEmailInput): SendEmailJobData {
-  const appUrl = envConfig.email.appUrl.replace(/\/$/, '');
+  const appUrl = envConfig.appUrl.replace(/\/$/, '');
   const safeName = escapeHtml(input.name);
 
   return {

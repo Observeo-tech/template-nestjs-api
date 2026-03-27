@@ -26,15 +26,14 @@ async function bootstrap() {
   await app.listen({ host: '0.0.0.0', port: envConfig.port }, async () => {
     await new Promise(resolve => setTimeout(resolve, 100));
     Logger.log(`Server is running!`);
-    Logger.log(`API Documentation: http://localhost:${envConfig.port}/docs`);
+    Logger.log(`API Documentation: ${envConfig.appUrl}/docs`);
     Logger.log(
-      `Swagger JSON: http://localhost:${envConfig.port}/swagger/json`,
+      `Swagger JSON: ${envConfig.appUrl}/swagger/json`,
     );
     Logger.log(
-      `Swagger YAML: http://localhost:${envConfig.port}/swagger/yaml\n`,
+      `Swagger YAML: ${envConfig.appUrl}/swagger/yaml\n`,
     );
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-floating-promises
-bootstrap();
+void bootstrap();

@@ -137,7 +137,7 @@ export class AppConfig {
 
   private static setupSwagger(app: INestApplication & NestFastifyApplication) {
     const config = new DocumentBuilder()
-      .addServer(`http://localhost:${envConfig.port}`, 'Local server')
+      .addServer(`${envConfig.appUrl}`, 'Server')
       .setTitle('API')
       .setDescription('# API Documentation')
       .setVersion('1.0')

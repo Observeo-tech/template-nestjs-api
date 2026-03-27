@@ -1,8 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { envConfig } from '@/config/env.config';
 import { EmailQueueService } from '@/modules/emails/application/services/email-queue.service';
-import type { IUserRepository } from '@/modules/users/domain/repositories/user.repository.interface';
-import { USER_REPOSITORY } from '@/modules/users/domain/repositories/user.repository.interface';
+import { USER_REPOSITORY, type IUserRepository } from '@/modules/users/domain/repositories/user.repository.interface';
 import {
   PASSWORD_RESET_REQUEST_MESSAGE,
   PASSWORD_RESET_TOKEN_TTL_MINUTES,
@@ -27,7 +26,7 @@ export class RequestPasswordResetUseCase {
     @Inject(PASSWORD_RESET_TOKEN_REPOSITORY)
     private readonly passwordResetTokenRepository: IPasswordResetTokenRepository,
     private readonly emailQueueService: EmailQueueService,
-  ) {}
+  ) { }
 
   async execute(input: RequestPasswordResetInput) {
     const user = await this.userRepository.findByEmail(input.email);
@@ -78,6 +77,6 @@ export class RequestPasswordResetUseCase {
 }
 
 function buildPasswordResetUrl(token: string): string {
-  const appUrl = envConfig.email.appUrl.replace(/\/$/, '');
+  const appUrl = envConfig.appUrl.replace(/\/$/, '');
   return `${appUrl}/reset-password?token=${encodeURIComponent(token)}`;
 }

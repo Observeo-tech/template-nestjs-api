@@ -31,11 +31,11 @@ export async function createSessionConfig(): Promise<FastifySessionOptions> {
   return {
     store,
     cookieName: SESSION_COOKIE_NAME,
-    secret: process.env.SESSION_SECRET || 'change-this-secret-in-production',
+    secret: envConfig.session.secret || 'change-this-secret-in-production',
     cookie: {
       secure: envConfig.isProduction,
       httpOnly: true,
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias em milissegundos
+      maxAge: envConfig.session.maxAge,
       sameSite: 'lax',
       path: '/',
     },

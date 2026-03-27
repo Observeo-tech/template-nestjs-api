@@ -3,8 +3,7 @@ import { Inject, Logger } from '@nestjs/common';
 import type { Job } from 'bull';
 import { EMAIL_JOB_SEND, EMAIL_QUEUE_NAME } from '../../application/constants/email-queue.constants';
 import type { SendEmailJobData } from '../../application/types/send-email-job.type';
-import { EMAIL_SENDER } from '../../domain/services/email-sender.interface';
-import type { EmailSender } from '../../domain/services/email-sender.interface';
+import { EMAIL_SENDER, type EmailSender } from '../../domain/services/email-sender.interface';
 
 @Processor(EMAIL_QUEUE_NAME)
 export class EmailProcessor {
@@ -13,7 +12,7 @@ export class EmailProcessor {
   constructor(
     @Inject(EMAIL_SENDER)
     private readonly emailSender: EmailSender,
-  ) {}
+  ) { }
 
   @Process(EMAIL_JOB_SEND)
   async handleSendEmail(job: Job<SendEmailJobData>): Promise<void> {

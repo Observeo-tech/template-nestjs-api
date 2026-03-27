@@ -2,9 +2,6 @@ import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
 export const userEmailSchema = z
-  .string({
-    message: 'Email is required',
-  })
   .email('Must be a valid email address')
   .transform((value) => value.toLowerCase().trim());
 
@@ -29,4 +26,4 @@ export const CreateUserSchema = z.object({
   name: userNameSchema,
 });
 
-export class CreateUserDto extends createZodDto(CreateUserSchema) {}
+export class CreateUserDto extends createZodDto(CreateUserSchema) { }

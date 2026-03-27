@@ -12,11 +12,11 @@ function emptyStringToUndefined(value: unknown) {
 export const FindAllUsersSchema = z.object({
   id: z.preprocess(
     emptyStringToUndefined,
-    z.string().uuid().optional(),
+    z.uuid().optional(),
   ),
   email: z.preprocess(
     emptyStringToUndefined,
-    z.string().email().optional(),
+    z.email().optional(),
   ),
   name: z.preprocess(
     emptyStringToUndefined,
@@ -26,4 +26,4 @@ export const FindAllUsersSchema = z.object({
   recordsPerPage: z.coerce.number().int().min(1).max(100).default(25),
 });
 
-export class FindAllUsersDto extends createZodDto(FindAllUsersSchema) {}
+export class FindAllUsersDto extends createZodDto(FindAllUsersSchema) { }

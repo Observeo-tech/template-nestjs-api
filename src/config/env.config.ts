@@ -8,6 +8,7 @@ validateEnv(process.env);
 
 export const envConfig = {
   port: parseInt(process.env.PORT || '3000', 10),
+  appUrl: process.env.APP_URL || 'http://localhost:3000',
   nodeEnv: process.env.NODE_ENV || 'development',
   isDevelopment: process.env.NODE_ENV !== 'production',
   isProduction: process.env.NODE_ENV === 'production',
@@ -44,6 +45,5 @@ export const envConfig = {
       },
     },
     from: process.env.SMTP_FROM || 'noreply@api.com',
-    appUrl: process.env.APP_URL || 'http://localhost:3000',
   },
 };

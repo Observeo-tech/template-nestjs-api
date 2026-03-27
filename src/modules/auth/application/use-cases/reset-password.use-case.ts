@@ -1,16 +1,9 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
-import type { IUserRepository } from '@/modules/users/domain/repositories/user.repository.interface';
-import { USER_REPOSITORY } from '@/modules/users/domain/repositories/user.repository.interface';
-import {
-  PASSWORD_RESET_SUCCESS_MESSAGE,
-  PASSWORD_RESET_TOKEN_INVALID_MESSAGE,
-} from '../constants/password-reset.constants';
-import {
-  PASSWORD_RESET_TOKEN_REPOSITORY,
-  type IPasswordResetTokenRepository,
-} from '../../domain/repositories/password-reset-token.repository.interface';
+import { USER_REPOSITORY, type IUserRepository } from '@/modules/users/domain/repositories/user.repository.interface';
 import { hashPasswordResetToken } from '../utils/password-reset-token.util';
+import { type IPasswordResetTokenRepository, PASSWORD_RESET_TOKEN_REPOSITORY } from '../../domain/repositories/password-reset-token.repository.interface';
+import { PASSWORD_RESET_SUCCESS_MESSAGE, PASSWORD_RESET_TOKEN_INVALID_MESSAGE } from '../constants/password-reset.constants';
 
 export interface ResetPasswordInput {
   token: string;
@@ -24,7 +17,7 @@ export class ResetPasswordUseCase {
     private readonly userRepository: IUserRepository,
     @Inject(PASSWORD_RESET_TOKEN_REPOSITORY)
     private readonly passwordResetTokenRepository: IPasswordResetTokenRepository,
-  ) {}
+  ) { }
 
   async execute(input: ResetPasswordInput) {
     const tokenHash = hashPasswordResetToken(input.token);

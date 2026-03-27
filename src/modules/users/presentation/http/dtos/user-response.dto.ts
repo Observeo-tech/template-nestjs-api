@@ -4,8 +4,8 @@ import { z } from 'zod';
 const DateTimeStringSchema = z.string().datetime();
 
 export const UserResponseSchema = z.object({
-  id: z.string().uuid(),
-  email: z.string().email(),
+  id: z.uuid(),
+  email: z.email(),
   name: z.string(),
   createdAt: DateTimeStringSchema,
   updatedAt: DateTimeStringSchema,
@@ -35,4 +35,4 @@ function normalizeDateTime(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : value;
 }
 
-export class UserResponseDto extends createZodDto(UserResponseSchema) {}
+export class UserResponseDto extends createZodDto(UserResponseSchema) { }
