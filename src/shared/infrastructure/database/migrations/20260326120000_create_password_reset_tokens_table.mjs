@@ -1,3 +1,4 @@
+/** @param {import('knex').Knex} knex */
 export async function up(knex) {
   await knex.raw('CREATE EXTENSION IF NOT EXISTS pgcrypto');
 
@@ -13,6 +14,7 @@ export async function up(knex) {
   });
 }
 
+/** @param {import('knex').Knex} knex */
 export async function down(knex) {
   await knex.schema.dropTableIfExists('password_reset_tokens');
 }

@@ -4,6 +4,7 @@ const DEFAULT_ADMIN_EMAIL = 'admin@cspeixes.local';
 const DEFAULT_ADMIN_NAME = 'Administrador';
 const DEFAULT_ADMIN_PASSWORD = 'admin123456';
 
+/** @returns {{ email: string, name: string, password: string }} */
 function resolveAdminSeedConfig() {
   return {
     email: process.env.SEED_ADMIN_EMAIL || DEFAULT_ADMIN_EMAIL,
@@ -12,9 +13,10 @@ function resolveAdminSeedConfig() {
   };
 }
 
+/** @param {import('knex').Knex} knex */
 export async function seed(knex) {
   const admin = resolveAdminSeedConfig();
-  const hashedPassword = await bcrypt.hash(admin.password, 10);
+  const hashedPassword = await bcrypt.hash(admin.password, 12);
 
   await knex('users')
     .insert({
@@ -36,6 +38,10 @@ export async function seed(knex) {
   };
 }
 
+/**
+ * @param {import('knex').Knex} knex
+ * @param {{ email?: string } | null | undefined} meta
+ */
 export async function down(knex, meta) {
   const admin = resolveAdminSeedConfig();
   const email = meta?.email || admin.email;

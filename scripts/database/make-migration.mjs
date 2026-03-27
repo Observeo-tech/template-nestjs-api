@@ -35,9 +35,11 @@ if (fs.existsSync(filePath)) {
   fail(`Migration "${fileName}" already exists.`);
 }
 
-const template = `export async function up(knex) {
+const template = `/** @param {import('knex').Knex} knex */
+export async function up(knex) {
 }
 
+/** @param {import('knex').Knex} knex */
 export async function down(knex) {
 }
 `;

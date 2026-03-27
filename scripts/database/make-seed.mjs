@@ -35,10 +35,15 @@ if (fs.existsSync(filePath)) {
   fail(`Seed "${fileName}" already exists.`);
 }
 
-const template = `export async function seed(knex) {
+const template = `/** @param {import('knex').Knex} knex */
+export async function seed(knex) {
   return null;
 }
 
+/**
+ * @param {import('knex').Knex} knex
+ * @param {unknown} meta
+ */
 export async function down(knex, meta) {
 }
 `;
