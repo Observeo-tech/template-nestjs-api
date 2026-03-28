@@ -14,7 +14,11 @@ import { DeleteUserUseCase } from '@/modules/users/application/use-cases/delete-
 import { FindUserUseCase } from '@/modules/users/application/use-cases/find-user.use-case';
 import { ListUsersUseCase } from '@/modules/users/application/use-cases/list-users.use-case';
 import { UpdateUserUseCase } from '@/modules/users/application/use-cases/update-user.use-case';
-import { ApiDoc } from '@/shared/http/decorators';
+import {
+  ApiDoc,
+  CurrentOrganization,
+  RequireOrganizationPermissions,
+} from '@/shared/http/decorators';
 import { ResponseHelper } from '@/shared/http/helpers/response-helper';
 import {
   CreateUserDto,
@@ -34,7 +38,7 @@ export class UsersController {
     private readonly listUsersUseCase: ListUsersUseCase,
     private readonly updateUserUseCase: UpdateUserUseCase,
     private readonly deleteUserUseCase: DeleteUserUseCase,
-  ) {}
+  ) { }
 
   @Post()
   @ApiBody({ type: CreateUserDto })
@@ -49,10 +53,11 @@ export class UsersController {
   }
 
   @Get(':id')
+  @RequireOrganizationPermissions('users.read')
   @ApiDoc({
     summary: 'Get user by ID',
     response: UserResponseDto,
-    commonResponses: ['badRequest', 'unauthorized'],
+    commonResponses: ['badRequest', 'unauthorized', 'conflict', 'forbidden'],
     params: [
       {
         name: 'id',
@@ -61,17 +66,25 @@ export class UsersController {
       },
     ],
   })
-  async findOne(@Param() params: UserIdParamDto) {
-    const result = await this.findUserUseCase.execute(params.id);
+  async findOne(
+    @CurrentOrganization('id') organizationId: string,
+    @Param() params: UserIdParamDto,
+  ) {
+    const result = await this.findUserUseCase.execute(
+      params.id,
+      organizationId,
+    );
+
     return ResponseHelper.success(toUserResponseDto(result.data), result.message);
   }
 
   @Get()
+  @RequireOrganizationPermissions('users.read')
   @ApiDoc({
     summary: 'List users',
     response: UserResponseDto,
     isPaginated: true,
-    commonResponses: ['badRequest', 'unauthorized'],
+    commonResponses: ['badRequest', 'unauthorized', 'conflict', 'forbidden'],
     query: [
       { name: 'id', description: 'Filter by user ID' },
       { name: 'email', description: 'Filter by email' },
@@ -80,8 +93,15 @@ export class UsersController {
       { name: 'recordsPerPage', description: 'Page size', example: 25 },
     ],
   })
-  async findAll(@Query() dto: FindAllUsersDto) {
-    const result = await this.listUsersUseCase.execute(dto);
+  async findAll(
+    @CurrentOrganization('id') organizationId: string,
+    @Query() dto: FindAllUsersDto,
+  ) {
+    const result = await this.listUsersUseCase.execute({
+      ...dto,
+      organizationId,
+    });
+
     return ResponseHelper.paginated(
       result.data.map(toUserResponseDto),
       result.pageCount,

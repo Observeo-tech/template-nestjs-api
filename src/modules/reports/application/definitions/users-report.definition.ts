@@ -82,6 +82,7 @@ export class UsersReportDefinition extends BaseReportDefinition<ExportUsersRepor
 
   protected async getRows(filters: ExportUsersReportFilters): Promise<PublicUser[]> {
     const result = await this.userRepository.findAll({
+      organizationId: filters.organizationId,
       id: filters.id,
       email: filters.email,
       name: filters.name,

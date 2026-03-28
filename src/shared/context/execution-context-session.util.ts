@@ -1,7 +1,11 @@
 import { ExecutionContext } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import type { Socket } from 'socket.io';
-import { AppCurrentUser, AppSessionContext } from './app-session-context';
+import {
+  AppCurrentOrganization,
+  AppCurrentUser,
+  AppSessionContext,
+} from './app-session-context';
 
 type SupportedContextType = 'http' | 'ws';
 
@@ -92,5 +96,19 @@ export function getCurrentUserFromSession(
     id: session.userId,
     email: session.email,
     name: session.name,
+  };
+}
+
+export function getCurrentOrganizationFromSession(
+  session?: AppSessionContext,
+): AppCurrentOrganization | null {
+  if (!session?.currentOrganizationId) {
+    return null;
+  }
+
+  return {
+    id: session.currentOrganizationId,
+    name: session.currentOrganizationName,
+    role: session.currentOrganizationRole,
   };
 }

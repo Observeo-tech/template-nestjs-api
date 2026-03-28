@@ -9,7 +9,10 @@ import {
 import type { FastifyReply } from 'fastify';
 import { ExportUsersReportUseCase } from '@/modules/reports/application/use-cases/export-users-report.use-case';
 import { ExportUsersReportDto } from '../dtos/export-users-report.dto';
-import { Public } from '@/shared/http/decorators';
+import {
+  CurrentOrganization,
+  RequireOrganizationPermissions,
+} from '@/shared/http/decorators';
 
 @ApiTags('Reports')
 @Controller('reports')
@@ -19,7 +22,7 @@ export class ReportsController {
   ) { }
 
   @Get('users')
-  @Public()
+  @RequireOrganizationPermissions('reports.export')
   @ApiOperation({
     summary: 'Export users report',
     description: 'Exports the users listing as PDF or spreadsheet. Spreadsheet format currently returns CSV compatible with Excel and Google Sheets.',
@@ -65,10 +68,16 @@ export class ReportsController {
     },
   })
   async exportUsers(
+    @CurrentOrganization('id') organizationId: string,
+    @CurrentOrganization('name') organizationName: string | undefined,
     @Query() dto: ExportUsersReportDto,
     @Res() reply: FastifyReply,
   ): Promise<void> {
-    const result = await this.exportUsersReportUseCase.execute(dto);
+    const result = await this.exportUsersReportUseCase.execute({
+      ...dto,
+      organizationId,
+      organizationName,
+    });
 
     reply
       .header('Content-Type', result.contentType)

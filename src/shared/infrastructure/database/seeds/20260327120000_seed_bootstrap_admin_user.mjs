@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 const DEFAULT_ADMIN_EMAIL = 'admin@cspeixes.local';
 const DEFAULT_ADMIN_NAME = 'Administrador';
 const DEFAULT_ADMIN_PASSWORD = 'admin123456';
+const DEFAULT_ADMIN_ID = '710000000000000001';
 
 /** @returns {{ email: string, name: string, password: string }} */
 function resolveAdminSeedConfig() {
@@ -20,6 +21,7 @@ export async function seed(knex) {
 
   await knex('users')
     .insert({
+      id: DEFAULT_ADMIN_ID,
       email: admin.email,
       name: admin.name,
       password: hashedPassword,

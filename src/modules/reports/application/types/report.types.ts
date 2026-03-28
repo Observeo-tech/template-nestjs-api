@@ -24,6 +24,26 @@ export interface ReportColumn<TRow> {
   format?: (value: ReportCellValue, row: TRow) => string;
 }
 
+export interface ReportBrandingLogo {
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+}
+
+export interface ResolvedReportBrandingLogo extends ReportBrandingLogo {
+  buffer: Buffer;
+}
+
+export interface ResolvedReportBranding {
+  displayName: string;
+  headerText?: string | null;
+  footerText?: string | null;
+  legalText?: string | null;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  logo?: ResolvedReportBrandingLogo | null;
+}
+
 export interface ReportDocument<TRow> {
   key: string;
   title: string;
@@ -33,6 +53,8 @@ export interface ReportDocument<TRow> {
   summary: ReportSummaryItem[];
   columns: ReportColumn<TRow>[];
   rows: TRow[];
+  organizationId?: string;
+  branding?: ResolvedReportBranding;
 }
 
 export interface GeneratedReportFile {

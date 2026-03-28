@@ -10,8 +10,8 @@ export class FindUserUseCase {
     private readonly userRepository: IUserRepository,
   ) {}
 
-  async execute(id: string) {
-    const user = await this.userRepository.findById(id);
+  async execute(id: string, organizationId?: string) {
+    const user = await this.userRepository.findById(id, organizationId);
 
     if (!user) {
       throw new NotFoundException('User not found');

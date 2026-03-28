@@ -9,8 +9,18 @@ const CSV_DELIMITER = ';';
 export class SpreadsheetReportExporter implements IReportExporter {
   readonly format = 'spreadsheet' as const;
 
-  export<TRow>(document: ReportDocument<TRow>): GeneratedReportFile {
-    const lines: string[][] = [[document.title]];
+  async export<TRow>(document: ReportDocument<TRow>): Promise<GeneratedReportFile> {
+    const lines: string[][] = [];
+
+    if (document.branding?.displayName) {
+      lines.push([document.branding.displayName]);
+    }
+
+    if (document.branding?.headerText) {
+      lines.push([document.branding.headerText]);
+    }
+
+    lines.push([document.title]);
 
     if (document.description) {
       lines.push([document.description]);
@@ -28,6 +38,15 @@ export class SpreadsheetReportExporter implements IReportExporter {
           document.columns.map(column => resolveColumnValue(column, row)),
         );
       });
+    }
+
+    if (document.branding?.footerText) {
+      lines.push([]);
+      lines.push([document.branding.footerText]);
+    }
+
+    if (document.branding?.legalText) {
+      lines.push([document.branding.legalText]);
     }
 
     const csvContent = lines

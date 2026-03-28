@@ -20,14 +20,14 @@ import {
   ValidatePasswordResetTokenResponseDto,
 } from '../dtos';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { SessionContextService } from '@/shared/context/session-context.service';
 import { envConfig } from '@/config/env.config';
+import { SessionStorageService } from '@/shared/session-storage/session-storage.service';
 
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
   constructor(
-    private readonly sessionContextService: SessionContextService,
+    private readonly sessionStorageService: SessionStorageService,
     private readonly createUserUseCase: CreateUserUseCase,
     private readonly loginUseCase: LoginUseCase,
     private readonly requestPasswordResetUseCase: RequestPasswordResetUseCase,
@@ -50,9 +50,17 @@ export class AuthController {
           name: req.session.name,
         }
       : null;
+    const currentOrganization = req.session.currentOrganizationId
+      ? {
+          id: req.session.currentOrganizationId,
+          name: req.session.currentOrganizationName,
+          role: req.session.currentOrganizationRole,
+        }
+      : null;
 
     return ResponseHelper.success({
       user,
+      currentOrganization,
       authenticated: req.session.authenticated ?? false,
     });
   }
@@ -216,18 +224,24 @@ export class AuthController {
     request.session.userId = user.id;
     request.session.email = user.email;
     request.session.name = user.name;
+    request.session.currentOrganizationId = undefined;
+    request.session.currentOrganizationName = undefined;
+    request.session.currentOrganizationRole = undefined;
     request.session.authenticated = true;
 
-    this.sessionContextService.updateStorageData({
+    this.sessionStorageService.updateStorageData({
       userId: user.id,
       email: user.email,
       name: user.name,
+      currentOrganizationId: undefined,
+      currentOrganizationName: undefined,
+      currentOrganizationRole: undefined,
       authenticated: true,
     });
   }
 
   private clearAuthenticatedSessionContext() {
-    this.sessionContextService.setStorageData({});
+    this.sessionStorageService.setStorageData({});
   }
 
   private clearSessionCookie(reply: FastifyReply) {

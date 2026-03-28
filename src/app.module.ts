@@ -2,20 +2,23 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuthModule } from '@/modules/auth/auth.module';
 import { EmailsModule } from '@/modules/emails/emails.module';
+import { OrganizationsModule } from '@/modules/organizations/organizations.module';
+import { PermissionsContextInterceptor } from '@/modules/permissions/application/interceptors/permissions-context.interceptor';
+import { PermissionsModule } from '@/modules/permissions/permissions.module';
 import { ReportsModule } from '@/modules/reports/reports.module';
 import { UsersModule } from '@/modules/users/users.module';
 import { WsModule } from '@/modules/ws/ws.module';
 import { AuthGuard } from '@/shared/http/guards/auth.guard';
 import { HttpCacheInterceptor, SessionStorageInterceptor } from '@/shared/http/interceptors';
 import { SharedInfrastructureModule } from '@/shared/infrastructure/shared-infrastructure.module';
-import { SessionContextModule } from './shared/context/session-context.module';
 
 @Module({
   imports: [
     SharedInfrastructureModule,
-    SessionContextModule,
     AuthModule,
     EmailsModule,
+    OrganizationsModule,
+    PermissionsModule,
     ReportsModule,
     UsersModule,
     WsModule,
@@ -29,6 +32,10 @@ import { SessionContextModule } from './shared/context/session-context.module';
     {
       provide: APP_INTERCEPTOR,
       useClass: SessionStorageInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: PermissionsContextInterceptor,
     },
     {
       provide: APP_INTERCEPTOR,

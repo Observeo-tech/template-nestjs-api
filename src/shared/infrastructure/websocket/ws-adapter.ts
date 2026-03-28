@@ -126,6 +126,9 @@ export class SessionIoAdapter extends IoAdapter {
       userId: session.userId,
       email: session.email,
       name: session.name,
+      currentOrganizationId: session.currentOrganizationId,
+      currentOrganizationName: session.currentOrganizationName,
+      currentOrganizationRole: session.currentOrganizationRole,
       authenticated: session.authenticated,
     };
   }

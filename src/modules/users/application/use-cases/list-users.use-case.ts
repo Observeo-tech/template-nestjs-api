@@ -7,6 +7,7 @@ export interface ListUsersInput {
   id?: string;
   email?: string;
   name?: string;
+  organizationId: string;
   pageCount: number;
   recordsPerPage: number;
 }

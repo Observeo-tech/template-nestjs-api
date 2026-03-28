@@ -17,36 +17,56 @@ export class UserRepository implements IUserRepository {
     return user ? user.toDomain() : null;
   }
 
-  async findById(id: string): Promise<User | null> {
-    const user = await UserModel.query().findById(id);
+  async findById(
+    id: string,
+    organizationId?: string,
+  ): Promise<User | null> {
+    const query = UserModel.query()
+      .alias('u')
+      .select('u.*')
+      .where('u.id', id);
+
+    if (organizationId) {
+      query
+        .join('organization_memberships as om', 'om.user_id', 'u.id')
+        .where('om.organization_id', organizationId);
+    }
+
+    const user = await query.first();
 
     return user ? user.toDomain() : null;
   }
 
   async findAll(filters: FindAllUsersFilters): Promise<FindAllUsersResult> {
-    const query = UserModel.query();
+    const query = UserModel.query().alias('u');
     const shouldPaginate = filters.paginate ?? true;
     const pageCount = filters.pageCount ?? 1;
     const recordsPerPage = filters.recordsPerPage ?? 25;
 
+    if (filters.organizationId) {
+      query
+        .join('organization_memberships as om', 'om.user_id', 'u.id')
+        .where('om.organization_id', filters.organizationId);
+    }
+
     if (filters.id) {
-      query.where('id', filters.id);
+      query.where('u.id', filters.id);
     }
 
     if (filters.email) {
-      query.where('email', filters.email);
+      query.where('u.email', filters.email);
     }
 
     if (filters.name) {
-      query.where('name', filters.name);
+      query.where('u.name', filters.name);
     }
 
     const total = await query.clone().resultSize();
 
     const usersQuery = query
       .clone()
-      .select('*')
-      .orderBy('createdAt', 'desc');
+      .select('u.*')
+      .orderBy('u.createdAt', 'desc');
 
     if (shouldPaginate) {
       usersQuery

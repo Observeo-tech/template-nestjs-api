@@ -26,6 +26,9 @@ type ConnectionSnapshot = {
     authenticated: true;
     userId: string;
     email: string | null;
+    currentOrganizationId: string | null;
+    currentOrganizationName: string | null;
+    currentOrganizationRole: string | null;
   };
 };
 
@@ -143,6 +146,9 @@ export class WsGateway
         authenticated: true,
         userId: session.userId,
         email: session.email ?? null,
+        currentOrganizationId: session.currentOrganizationId ?? null,
+        currentOrganizationName: session.currentOrganizationName ?? null,
+        currentOrganizationRole: session.currentOrganizationRole ?? null,
       },
     };
   }

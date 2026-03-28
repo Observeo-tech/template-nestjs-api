@@ -1,5 +1,6 @@
 import fastifyCookie from '@fastify/cookie';
 import fastifyHelmet from '@fastify/helmet';
+import fastifyMultipart from '@fastify/multipart';
 import fastifySession from '@fastify/session';
 import {
   ClassSerializerInterceptor,
@@ -50,6 +51,7 @@ export class AppConfig {
     });
 
     await app.register(fastifyCookie);
+    await app.register(fastifyMultipart);
     await app.register(fastifySession, await createSessionConfig());
 
     app.useGlobalPipes(new ZodValidationPipe());
