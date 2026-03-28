@@ -88,7 +88,7 @@ curl -X POST http://localhost:3000/auth/login \
   "success": true,
   "data": {
     "user": {
-      "id": "uuid-aqui",
+      "id": "1925012345678901248",
       "email": "admin@cspeixes.local",
       "name": "Administrador",
       "createdAt": "2024-01-01T00:00:00.000Z",

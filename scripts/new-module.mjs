@@ -682,6 +682,7 @@ export class ${ctx.updateDtoClass} extends createZodDto(Update${ctx.entityClass}
 function createFindAllDtoTemplate(ctx) {
   return `import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
+import { snowflakeIdSchema } from '@/shared/ids/snowflake-id.schema';
 
 function emptyStringToUndefined(value) {
   if (typeof value === 'string' && value.trim() === '') {
@@ -694,7 +695,7 @@ function emptyStringToUndefined(value) {
 export const FindAll${ctx.moduleClass}Schema = z.object({
   id: z.preprocess(
     emptyStringToUndefined,
-    z.string().uuid().optional(),
+    snowflakeIdSchema.optional(),
   ),
   name: z.preprocess(
     emptyStringToUndefined,
@@ -711,9 +712,10 @@ export class ${ctx.listDtoClass} extends createZodDto(FindAll${ctx.moduleClass}S
 function createIdParamDtoTemplate(ctx) {
   return `import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
+import { snowflakeIdSchema } from '@/shared/ids/snowflake-id.schema';
 
 export const ${ctx.idParamDtoClass}Schema = z.object({
-  id: z.string().uuid(),
+  id: snowflakeIdSchema,
 });
 
 export class ${ctx.idParamDtoClass} extends createZodDto(${ctx.idParamDtoClass}Schema) {}
@@ -723,11 +725,12 @@ export class ${ctx.idParamDtoClass} extends createZodDto(${ctx.idParamDtoClass}S
 function createResponseDtoTemplate(ctx) {
   return `import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
+import { snowflakeIdSchema } from '@/shared/ids/snowflake-id.schema';
 
 const DateTimeStringSchema = z.string().datetime();
 
 export const ${ctx.entityClass}ResponseSchema = z.object({
-  id: z.string().uuid(),
+  id: snowflakeIdSchema,
   name: z.string(),
   createdAt: DateTimeStringSchema,
   updatedAt: DateTimeStringSchema,
@@ -805,7 +808,7 @@ export class ${ctx.moduleClass}Controller {
       {
         name: 'id',
         description: '${ctx.entityDisplayName} ID',
-        example: '550e8400-e29b-41d4-a716-446655440000',
+        example: '1925012345678901248',
       },
     ],
   })
@@ -848,7 +851,7 @@ export class ${ctx.moduleClass}Controller {
       {
         name: 'id',
         description: '${ctx.entityDisplayName} ID',
-        example: '550e8400-e29b-41d4-a716-446655440000',
+        example: '1925012345678901248',
       },
     ],
   })
@@ -868,7 +871,7 @@ export class ${ctx.moduleClass}Controller {
       {
         name: 'id',
         description: '${ctx.entityDisplayName} ID',
-        example: '550e8400-e29b-41d4-a716-446655440000',
+        example: '1925012345678901248',
       },
     ],
   })

@@ -1,5 +1,6 @@
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
+import { snowflakeIdSchema } from '@/shared/ids/snowflake-id.schema';
 
 function emptyStringToUndefined(value: unknown) {
   if (typeof value === 'string' && value.trim() === '') {
@@ -12,7 +13,7 @@ function emptyStringToUndefined(value: unknown) {
 export const FindAllUsersSchema = z.object({
   id: z.preprocess(
     emptyStringToUndefined,
-    z.uuid().optional(),
+    snowflakeIdSchema.optional(),
   ),
   email: z.preprocess(
     emptyStringToUndefined,

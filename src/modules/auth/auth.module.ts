@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { EmailsModule } from '@/modules/emails/emails.module';
+import { CreateUserUseCase } from '@/modules/users/application/use-cases/create-user.use-case';
 import { UsersPersistenceModule } from '@/modules/users/infrastructure/persistence/users-persistence.module';
 import { LoginUseCase } from './application/use-cases/login.use-case';
 import { RequestPasswordResetUseCase } from './application/use-cases/request-password-reset.use-case';
@@ -16,6 +17,7 @@ import { AuthController } from './presentation/http/controllers/auth.controller'
 @Module({
   imports: [UsersPersistenceModule, AuthPersistenceModule, EmailsModule],
   providers: [
+    CreateUserUseCase,
     LoginUseCase,
     RequestPasswordResetUseCase,
     ValidatePasswordResetTokenUseCase,

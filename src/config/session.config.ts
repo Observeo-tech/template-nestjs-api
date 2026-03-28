@@ -4,7 +4,7 @@ import * as ConnectRedis from 'connect-redis';
 import { createClient } from 'redis';
 import { envConfig } from './env.config';
 
-export const SESSION_COOKIE_NAME = 'sessionId';
+export const SESSION_COOKIE_NAME = envConfig.session.cookie.name;
 export const SESSION_STORE_PREFIX = 'session:';
 export const SESSION_TTL_SECONDS = 86400 * 7;
 
@@ -33,12 +33,13 @@ export async function createSessionConfig(): Promise<FastifySessionOptions> {
     cookieName: SESSION_COOKIE_NAME,
     secret: envConfig.session.secret || 'change-this-secret-in-production',
     cookie: {
-      secure: envConfig.isProduction,
+      secure: envConfig.session.cookie.secure,
       httpOnly: true,
-      maxAge: envConfig.session.maxAge,
-      sameSite: 'lax',
-      path: '/',
+      maxAge: envConfig.session.maxAge * 1000,
+      sameSite: envConfig.session.cookie.sameSite,
+      path: envConfig.session.cookie.path,
+      domain: envConfig.session.cookie.domain,
     },
-    saveUninitialized: false,
+    saveUninitialized: envConfig.session.saveUninitialized,
   };
 }

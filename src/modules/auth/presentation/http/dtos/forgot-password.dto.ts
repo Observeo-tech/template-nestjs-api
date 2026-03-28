@@ -26,18 +26,18 @@ export const ForgotPasswordResponseSchema = z.object({
 
 export const ValidatePasswordResetTokenResponseSchema = z.object({
   valid: z.boolean().default(true),
-  expiresAt: z.string().datetime(),
+  expiresAt: z.iso.datetime(),
 });
 
 export const ResetPasswordResponseSchema = z.object({
   completed: z.boolean().default(true),
 });
 
-export class ForgotPasswordDto extends createZodDto(ForgotPasswordSchema) {}
-export class ValidatePasswordResetTokenDto extends createZodDto(ValidatePasswordResetTokenSchema) {}
-export class ResetPasswordDto extends createZodDto(ResetPasswordSchema) {}
-export class ForgotPasswordResponseDto extends createZodDto(ForgotPasswordResponseSchema) {}
+export class ForgotPasswordDto extends createZodDto(ForgotPasswordSchema) { }
+export class ValidatePasswordResetTokenDto extends createZodDto(ValidatePasswordResetTokenSchema) { }
+export class ResetPasswordDto extends createZodDto(ResetPasswordSchema) { }
+export class ForgotPasswordResponseDto extends createZodDto(ForgotPasswordResponseSchema) { }
 export class ValidatePasswordResetTokenResponseDto extends createZodDto(
   ValidatePasswordResetTokenResponseSchema,
-) {}
-export class ResetPasswordResponseDto extends createZodDto(ResetPasswordResponseSchema) {}
+) { }
+export class ResetPasswordResponseDto extends createZodDto(ResetPasswordResponseSchema) { }

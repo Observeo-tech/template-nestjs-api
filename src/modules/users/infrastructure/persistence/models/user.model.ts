@@ -1,10 +1,10 @@
 import { User } from '@/modules/users/domain/entities/user.entity';
-import { Model } from 'objection';
+import { SnowflakeModel } from '@/shared/infrastructure/database/models/snowflake.model';
 
 const USERS_TABLE = 'users';
 
-export class UserModel extends Model {
-  id!: string;
+export class UserModel extends SnowflakeModel {
+  declare id: string;
   email!: string;
   password!: string;
   name!: string;

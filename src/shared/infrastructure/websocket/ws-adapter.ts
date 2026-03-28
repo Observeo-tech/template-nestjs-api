@@ -1,70 +1,82 @@
 import type { AppSessionContext } from '@/shared/context/app-session-context';
-import { SESSION_COOKIE_NAME, SESSION_STORE_PREFIX } from '@/config/session.config';
 import { envConfig } from '@/config/env.config';
-import { Logger, type INestApplication } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { IoAdapter } from '@nestjs/platform-socket.io';
+import { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { createAdapter } from '@socket.io/redis-adapter';
-import type { FastifyInstance } from 'fastify';
-import { Redis } from 'ioredis';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { createClient, RedisClientType } from 'redis';
 import type { ServerOptions, Socket } from 'socket.io';
 
-type FastifyCookieSignerResult = {
-  valid: boolean;
-  renew?: boolean;
-  value: string | null;
+type SessionAwareRequest = Partial<FastifyRequest> & {
+  session?: AppSessionContext;
 };
 
-type FastifyCookieInstance = FastifyInstance & {
-  unsignCookie?: (value: string) => FastifyCookieSignerResult;
-};
+export class SessionIoAdapter extends IoAdapter {
+  private readonly logger = new Logger(SessionIoAdapter.name);
+  private readonly fastify: FastifyInstance;
+  private pubClient?: RedisClientType;
+  private subClient?: RedisClientType;
+  private redisAdapter?: ReturnType<typeof createAdapter>;
 
-export class WsIoAdapter extends IoAdapter {
-  private readonly logger = new Logger(WsIoAdapter.name);
-  private adapterConstructor?: ReturnType<typeof createAdapter>;
-  private sessionClient?: Redis;
-
-  constructor(private readonly app: INestApplication) {
+  constructor(app: NestFastifyApplication) {
     super(app);
+    this.fastify = app.getHttpAdapter().getInstance();
   }
 
   async connectToRedis(): Promise<void> {
-    const pubClient = new Redis({
-      host: envConfig.redis.host,
-      port: envConfig.redis.port,
-      password: envConfig.redis.password,
-      db: envConfig.redis.db,
-      lazyConnect: true,
+    if (this.redisAdapter) {
+      return;
+    }
+
+    this.pubClient = createClient({
+      socket: {
+        host: envConfig.redis.host,
+        port: envConfig.redis.port,
+      },
+      password: envConfig.redis.password || undefined,
+      database: envConfig.redis.db,
     });
 
-    const subClient = pubClient.duplicate();
-    const sessionClient = pubClient.duplicate();
+    this.subClient = this.pubClient.duplicate();
 
     await Promise.all([
-      pubClient.connect(),
-      subClient.connect(),
-      sessionClient.connect(),
+      this.pubClient.connect(),
+      this.subClient.connect(),
     ]);
 
-    this.adapterConstructor = createAdapter(pubClient, subClient);
-    this.sessionClient = sessionClient;
+    this.redisAdapter = createAdapter(this.pubClient, this.subClient);
+  }
+
+  async dispose(): Promise<void> {
+    await Promise.allSettled([
+      this.pubClient?.quit(),
+      this.subClient?.quit(),
+    ]);
   }
 
   createIOServer(port: number, options?: ServerOptions): any {
     const server = super.createIOServer(port, {
+      ...options,
       path: envConfig.websocket.path,
       cors: {
         origin: true,
         credentials: true,
       },
-      ...options,
+      transports: envConfig.websocket.transports,
+      connectionStateRecovery: {
+        maxDisconnectionDuration:
+          envConfig.websocket.connectionStateRecoveryMaxDisconnectionMs,
+        skipMiddlewares: true,
+      },
     });
 
-    if (this.adapterConstructor) {
-      server.adapter(this.adapterConstructor);
+    if (this.redisAdapter) {
+      server.adapter(this.redisAdapter);
     }
 
     server.use((socket: Socket, next: (error?: Error) => void) => {
-      this.attachSession(socket)
+      void this.attachSession(socket)
         .then(() => next())
         .catch((error: unknown) => {
           const message = error instanceof Error
@@ -72,7 +84,8 @@ export class WsIoAdapter extends IoAdapter {
             : 'Unable to resolve websocket session';
 
           this.logger.error(message, error instanceof Error ? error.stack : undefined);
-          next(new Error(message));
+          socket.data.session = {};
+          next();
         });
     });
 
@@ -80,84 +93,41 @@ export class WsIoAdapter extends IoAdapter {
   }
 
   private async attachSession(socket: Socket): Promise<void> {
-    socket.data.session = await this.resolveSession(socket);
-  }
-
-  private async resolveSession(socket: Socket): Promise<AppSessionContext> {
     const cookieHeader = this.getHeaderValue(socket.handshake.headers.cookie);
-    if (!cookieHeader || !this.sessionClient) {
-      return {};
+    if (!cookieHeader) {
+      socket.data.session = {};
+      return;
     }
 
-    const signedSessionId = this.getCookieValue(cookieHeader, SESSION_COOKIE_NAME);
-    if (!signedSessionId) {
-      return {};
-    }
+    const cookies = this.fastify.parseCookie(cookieHeader);
+    const rawSessionId = cookies[envConfig.session.cookie.name];
+    const sessionId = Array.isArray(rawSessionId) ? rawSessionId[0] : rawSessionId;
 
-    const sessionId = this.unsignSessionId(signedSessionId);
     if (!sessionId) {
-      return {};
+      socket.data.session = {};
+      return;
     }
 
-    const rawSession = await this.sessionClient.get(`${SESSION_STORE_PREFIX}${sessionId}`);
-    if (!rawSession) {
-      return {};
-    }
+    const request = {} as SessionAwareRequest;
 
-    return this.parseSession(rawSession);
-  }
+    await new Promise<void>((resolve, reject) => {
+      this.fastify.decryptSession(sessionId, request, (err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
 
-  private unsignSessionId(signedSessionId: string): string | undefined {
-    const fastifyInstance = this.app.getHttpAdapter().getInstance() as FastifyCookieInstance;
+        resolve();
+      });
+    });
 
-    if (typeof fastifyInstance.unsignCookie !== 'function') {
-      this.logger.warn('fastify unsignCookie is not available for websocket session resolution');
-      return undefined;
-    }
-
-    const result = fastifyInstance.unsignCookie(signedSessionId);
-    if (!result.valid || !result.value) {
-      return undefined;
-    }
-
-    return result.value;
-  }
-
-  private parseSession(rawSession: string): AppSessionContext {
-    try {
-      const session = JSON.parse(rawSession) as AppSessionContext;
-
-      return {
-        userId: session.userId,
-        email: session.email,
-        authenticated: session.authenticated,
-      };
-    } catch (error) {
-      this.logger.warn(
-        `Failed to parse websocket session payload: ${error instanceof Error ? error.message : 'unknown error'}`,
-      );
-
-      return {};
-    }
-  }
-
-  private getCookieValue(cookieHeader: string, cookieName: string): string | undefined {
-    const targetCookie = cookieHeader
-      .split(';')
-      .map((item) => item.trim())
-      .find((item) => item.startsWith(`${cookieName}=`));
-
-    if (!targetCookie) {
-      return undefined;
-    }
-
-    const rawValue = targetCookie.slice(cookieName.length + 1).replace(/^"|"$/g, '');
-
-    try {
-      return decodeURIComponent(rawValue);
-    } catch {
-      return rawValue;
-    }
+    const session: AppSessionContext = request.session ?? {};
+    socket.data.session = {
+      userId: session.userId,
+      email: session.email,
+      name: session.name,
+      authenticated: session.authenticated,
+    };
   }
 
   private getHeaderValue(header?: string | string[]): string | undefined {
@@ -168,3 +138,5 @@ export class WsIoAdapter extends IoAdapter {
     return header;
   }
 }
+
+export { SessionIoAdapter as WsIoAdapter };

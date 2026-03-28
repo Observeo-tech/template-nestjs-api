@@ -91,5 +91,6 @@ export function getCurrentUserFromSession(
   return {
     id: session.userId,
     email: session.email,
+    name: session.name,
   };
 }

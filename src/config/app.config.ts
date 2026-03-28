@@ -1,4 +1,3 @@
-import { WsIoAdapter } from '@/shared/infrastructure/websocket/ws-adapter';
 import fastifyCookie from '@fastify/cookie';
 import fastifyHelmet from '@fastify/helmet';
 import fastifySession from '@fastify/session';
@@ -19,10 +18,6 @@ import { enrichSwaggerResponsesFromSource } from './swagger-response-inference';
 
 export class AppConfig {
   static async setup(app: INestApplication & NestFastifyApplication) {
-    const wsIoAdapter = new WsIoAdapter(app);
-    await wsIoAdapter.connectToRedis();
-    app.useWebSocketAdapter(wsIoAdapter);
-
     // Compression
     app.use(compression({
       filter: () => { return true; },
@@ -38,9 +33,9 @@ export class AppConfig {
           origin === 'null' ||
           origin.includes('localhost') ||
           origin.includes('127.0.0.1') ||
-          /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/.test(origin) ||
-          /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/.test(origin) ||
-          /^http:\/\/172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}(:\d+)?$/.test(origin) ||
+          /^https?:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/.test(origin) ||
+          /^https?:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/.test(origin) ||
+          /^https?:\/\/172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}(:\d+)?$/.test(origin) ||
           allowedOrigins.includes(origin)) {
           callback(null, true);
         } else if (allowedOrigins.length === 0 || allowedOrigins[0] === '*') {
@@ -137,7 +132,7 @@ export class AppConfig {
 
   private static setupSwagger(app: INestApplication & NestFastifyApplication) {
     const config = new DocumentBuilder()
-      .addServer(`${envConfig.appUrl}`, 'Server')
+      .addServer(`${envConfig.apiUrl}`, 'Server')
       .setTitle('API')
       .setDescription('# API Documentation')
       .setVersion('1.0')

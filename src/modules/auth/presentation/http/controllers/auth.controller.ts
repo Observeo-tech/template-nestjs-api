@@ -1,5 +1,6 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query, Req, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { CreateUserUseCase } from '@/modules/users/application/use-cases/create-user.use-case';
 import { LoginUseCase } from '@/modules/auth/application/use-cases/login.use-case';
 import { RequestPasswordResetUseCase } from '@/modules/auth/application/use-cases/request-password-reset.use-case';
 import { ResetPasswordUseCase } from '@/modules/auth/application/use-cases/reset-password.use-case';
@@ -12,24 +13,80 @@ import {
   ForgotPasswordDto,
   ForgotPasswordResponseDto,
   LoginDto,
+  RegisterDto,
   ResetPasswordDto,
   ResetPasswordResponseDto,
   ValidatePasswordResetTokenDto,
   ValidatePasswordResetTokenResponseDto,
 } from '../dtos';
-import type { FastifyRequest } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { SessionContextService } from '@/shared/context/session-context.service';
+import { envConfig } from '@/config/env.config';
 
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly sessionContextService: SessionContextService,
+    private readonly createUserUseCase: CreateUserUseCase,
     private readonly loginUseCase: LoginUseCase,
     private readonly requestPasswordResetUseCase: RequestPasswordResetUseCase,
     private readonly validatePasswordResetTokenUseCase: ValidatePasswordResetTokenUseCase,
     private readonly resetPasswordUseCase: ResetPasswordUseCase,
   ) { }
+
+  @Public()
+  @Get('me')
+  @HttpCode(HttpStatus.OK)
+  @ApiDoc({
+    summary: 'Check session',
+    description: 'Check if this session is authenticated'
+  })
+  me(@Req() req: FastifyRequest) {
+    const user = req.session.authenticated
+      ? {
+          id: req.session.userId,
+          email: req.session.email,
+          name: req.session.name,
+        }
+      : null;
+
+    return ResponseHelper.success({
+      user,
+      authenticated: req.session.authenticated ?? false,
+    });
+  }
+
+  @Public()
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiDoc({
+    summary: 'User register',
+    description: 'Create a new user account and authenticate the session.',
+    response: AuthResponseDto,
+    commonResponses: [
+      'badRequest',
+      {
+        type: 'conflict',
+        description: 'User email already exists',
+      },
+    ],
+  })
+  async register(
+    @Req() request: FastifyRequest,
+    @Body() registerDto: RegisterDto,
+  ): Promise<AuthResponseDto> {
+    const result = await this.createUserUseCase.execute(registerDto);
+    const user = toUserResponseDto(result.data);
+
+    this.setAuthenticatedSession(request, user);
+    await request.session.save();
+
+    return {
+      user,
+      message: result.message,
+    };
+  }
 
   @Public()
   @Post('login')
@@ -57,11 +114,38 @@ export class AuthController {
 
     const user = toUserResponseDto(result.user);
     this.setAuthenticatedSession(request, user);
+    await request.session.save();
 
     return {
       user: toUserResponseDto(result.user),
       message: 'Login successful',
     };
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @ApiDoc({
+    summary: 'Logout',
+    description: 'Destroys the current session and clears the session cookie.',
+  })
+  async logout(
+    @Req() request: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
+    this.clearAuthenticatedSessionContext();
+    await new Promise<void>((resolve, reject) => {
+      request.session.destroy((err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        resolve();
+      });
+    });
+    this.clearSessionCookie(reply);
+
+    return ResponseHelper.success(null, 'Logout realizado com sucesso');
   }
 
   @Public()
@@ -131,12 +215,25 @@ export class AuthController {
   private setAuthenticatedSession(request: FastifyRequest, user: UserResponse) {
     request.session.userId = user.id;
     request.session.email = user.email;
+    request.session.name = user.name;
     request.session.authenticated = true;
 
     this.sessionContextService.updateStorageData({
       userId: user.id,
       email: user.email,
+      name: user.name,
       authenticated: true,
+    });
+  }
+
+  private clearAuthenticatedSessionContext() {
+    this.sessionContextService.setStorageData({});
+  }
+
+  private clearSessionCookie(reply: FastifyReply) {
+    reply.clearCookie(envConfig.session.cookie.name, {
+      path: envConfig.session.cookie.path,
+      domain: envConfig.session.cookie.domain,
     });
   }
 }

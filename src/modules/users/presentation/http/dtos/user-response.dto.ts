@@ -1,10 +1,11 @@
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
+import { snowflakeIdSchema } from '@/shared/ids/snowflake-id.schema';
 
 const DateTimeStringSchema = z.string().datetime();
 
 export const UserResponseSchema = z.object({
-  id: z.uuid(),
+  id: snowflakeIdSchema,
   email: z.email(),
   name: z.string(),
   createdAt: DateTimeStringSchema,

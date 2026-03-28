@@ -44,7 +44,8 @@ describe('enrichSwaggerResponsesFromSource', () => {
     >;
 
     expect(userSchema.properties.password).toBeUndefined();
-    expect(userSchema.properties.id.format).toBe('uuid');
+    expect(userSchema.properties.id.type).toBe('string');
+    expect(userSchema.properties.id.format).toBeUndefined();
     expect(userSchema.properties.email.example).toBe('user@example.com');
   });
 });

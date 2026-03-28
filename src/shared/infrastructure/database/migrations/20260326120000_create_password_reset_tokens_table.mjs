@@ -1,10 +1,8 @@
 /** @param {import('knex').Knex} knex */
 export async function up(knex) {
-  await knex.raw('CREATE EXTENSION IF NOT EXISTS pgcrypto');
-
   await knex.schema.createTable('password_reset_tokens', (table) => {
-    table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
-    table.uuid('user_id').notNullable().references('id').inTable('users').onDelete('CASCADE');
+    table.bigInteger('id').primary();
+    table.bigInteger('user_id').notNullable().references('id').inTable('users').onDelete('CASCADE');
     table.string('token_hash', 255).notNullable().unique();
     table.timestamp('expires_at').notNullable();
     table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());

@@ -5,12 +5,11 @@ import { UserResponseSchema } from '@/modules/users/presentation/http/dtos/user-
 /**
  * Zod schema for authentication response
  *
- * Returns user data and authentication token
+ * Returns authenticated user data
  */
 export const AuthResponseSchema = z.object({
   user: UserResponseSchema,
-  token: z.string().optional().describe('JWT token for authentication'),
-  message: z.string().default('Login successful'),
+  message: z.string().default('Authentication successful'),
 });
 
 /**
@@ -20,16 +19,12 @@ export const AuthResponseSchema = z.object({
  * ```json
  * {
  *   "user": {
- *     "id": "550e8400-e29b-41d4-a716-446655440000",
+ *     "id": "1925012345678901248",
  *     "email": "user@example.com",
- *     "name": "John Doe",
- *     "createdAt": "2024-01-01T00:00:00.000Z",
- *     "updatedAt": "2024-01-01T00:00:00.000Z"
+ *     "name": "Jane Doe"
  *   },
- *   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
- *   "message": "Login successful"
+ *   "message": "Authentication successful"
  * }
  * ```
  */
 export class AuthResponseDto extends createZodDto(AuthResponseSchema) {}
-
