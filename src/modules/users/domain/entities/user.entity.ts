@@ -1,7 +1,9 @@
 export class User {
   id: string;
   email: string;
-  password: string;
+  password?: string | null;
+  googleId?: string | null;
+  avatarUrl?: string | null;
   name: string;
   createdAt: Date;
   updatedAt: Date;

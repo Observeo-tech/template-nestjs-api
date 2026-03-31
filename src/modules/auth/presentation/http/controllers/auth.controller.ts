@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query, Req, Res } fr
 import { ApiTags } from '@nestjs/swagger';
 import { CreateUserUseCase } from '@/modules/users/application/use-cases/create-user.use-case';
 import { LoginUseCase } from '@/modules/auth/application/use-cases/login.use-case';
+import { LoginWithGoogleUseCase } from '@/modules/auth/application/use-cases/login-with-google.use-case';
 import { RequestPasswordResetUseCase } from '@/modules/auth/application/use-cases/request-password-reset.use-case';
 import { ResetPasswordUseCase } from '@/modules/auth/application/use-cases/reset-password.use-case';
 import { ValidatePasswordResetTokenUseCase } from '@/modules/auth/application/use-cases/validate-password-reset-token.use-case';
@@ -12,6 +13,7 @@ import {
   AuthResponseDto,
   ForgotPasswordDto,
   ForgotPasswordResponseDto,
+  GoogleLoginDto,
   LoginDto,
   RegisterDto,
   ResetPasswordDto,
@@ -30,6 +32,7 @@ export class AuthController {
     private readonly sessionStorageService: SessionStorageService,
     private readonly createUserUseCase: CreateUserUseCase,
     private readonly loginUseCase: LoginUseCase,
+    private readonly loginWithGoogleUseCase: LoginWithGoogleUseCase,
     private readonly requestPasswordResetUseCase: RequestPasswordResetUseCase,
     private readonly validatePasswordResetTokenUseCase: ValidatePasswordResetTokenUseCase,
     private readonly resetPasswordUseCase: ResetPasswordUseCase,
@@ -127,6 +130,43 @@ export class AuthController {
     return {
       user: toUserResponseDto(result.user),
       message: 'Login successful',
+    };
+  }
+
+  @Public()
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  @ApiDoc({
+    summary: 'Google login',
+    description: 'Authenticate or create a user with a Google ID token and persist the current session.',
+    response: AuthResponseDto,
+    commonResponses: [
+      'badRequest',
+      {
+        type: 'unauthorized',
+        description: 'Invalid Google token',
+      },
+      {
+        type: 'conflict',
+        description: 'Google account conflict',
+      },
+    ],
+  })
+  async loginWithGoogle(
+    @Req() request: FastifyRequest,
+    @Body() googleLoginDto: GoogleLoginDto,
+  ): Promise<AuthResponseDto> {
+    const result = await this.loginWithGoogleUseCase.execute({
+      idToken: googleLoginDto.idToken,
+    });
+
+    const user = toUserResponseDto(result.user);
+    this.setAuthenticatedSession(request, user);
+    await request.session.save();
+
+    return {
+      user,
+      message: result.message,
     };
   }
 

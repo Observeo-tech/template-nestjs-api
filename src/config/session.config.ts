@@ -5,7 +5,7 @@ import { createClient } from 'redis';
 import { envConfig } from './env.config';
 
 export const SESSION_COOKIE_NAME = envConfig.session.cookie.name;
-export const SESSION_STORE_PREFIX = 'session:';
+export const SESSION_STORE_PREFIX = `${envConfig.app.slug}:session:`;
 export const SESSION_TTL_SECONDS = 86400 * 7;
 
 export async function createSessionConfig(): Promise<FastifySessionOptions> {

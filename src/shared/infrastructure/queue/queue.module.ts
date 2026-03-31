@@ -12,7 +12,7 @@ import { envConfig } from '@/config/env.config';
         password: envConfig.redis.password,
         db: envConfig.redis.db,
       },
-      prefix: 'queue-',
+      prefix: `${envConfig.app.slug}:queue`,
       defaultJobOptions: {
         attempts: 1,
       },

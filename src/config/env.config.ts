@@ -23,12 +23,25 @@ function parseSessionCookieSecure(
   }
 }
 
+function normalizeAppSlug(value: string | undefined): string {
+  const normalized = (value || 'api')
+    .trim()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  return normalized || 'api';
+}
+
 const sessionCookieDomain = process.env.SESSION_COOKIE_DOMAIN?.trim();
 const websocketPath =
   process.env.WS_PATH ||
   process.env.WEBSOCKET_PATH ||
   '/socket.io';
 const websocketAllowPolling = process.env.WS_ALLOW_POLLING === 'true';
+const appSlug = normalizeAppSlug(process.env.APP_SLUG || process.env.APP_NAME);
 
 export const envConfig = {
   port: parseInt(process.env.PORT || '3000', 10),
@@ -39,6 +52,7 @@ export const envConfig = {
   isProduction: process.env.NODE_ENV === 'production',
   app: {
     name: process.env.APP_NAME || 'NestJS API Scaffold',
+    slug: appSlug,
     description:
       process.env.APP_DESCRIPTION ||
       'NestJS API Scaffold with Fastify, PostgreSQL, Redis, and feature-first modules',
@@ -65,7 +79,7 @@ export const envConfig = {
     maxAge: parseInt(process.env.SESSION_MAX_AGE || '604800000', 10),
     saveUninitialized: process.env.SESSION_SAVE_UNINITIALIZED === 'true',
     cookie: {
-      name: process.env.SESSION_COOKIE_NAME || 'sessionId',
+      name: process.env.SESSION_COOKIE_NAME || `${appSlug}.sid`,
       secure: parseSessionCookieSecure(process.env.SESSION_COOKIE_SECURE),
       sameSite: (process.env.SESSION_COOKIE_SAME_SITE ||
         'lax') as SessionCookieSameSite,
@@ -89,6 +103,7 @@ export const envConfig = {
   },
 
   email: {
+    enabled: process.env.EMAIL_ENABLED !== 'false',
     smtp: {
       host: process.env.SMTP_HOST || 'smtp.mailtrap.io',
       port: parseInt(process.env.SMTP_PORT || '2525', 10),
@@ -99,5 +114,12 @@ export const envConfig = {
       },
     },
     from: process.env.SMTP_FROM || 'noreply@api.com',
+  },
+
+  auth: {
+    google: {
+      enabled: process.env.GOOGLE_AUTH_ENABLED === 'true',
+      clientId: process.env.GOOGLE_CLIENT_ID?.trim(),
+    },
   },
 };

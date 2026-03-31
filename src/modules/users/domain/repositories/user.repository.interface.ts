@@ -2,13 +2,17 @@ import { User } from '../entities/user.entity';
 
 export interface CreateUserData {
   email: string;
-  password: string;
+  password?: string | null;
+  googleId?: string | null;
+  avatarUrl?: string | null;
   name: string;
 }
 
 export interface UpdateUserData {
   email?: string;
-  password?: string;
+  password?: string | null;
+  googleId?: string | null;
+  avatarUrl?: string | null;
   name?: string;
 }
 
@@ -29,6 +33,7 @@ export interface FindAllUsersResult {
 
 export interface IUserRepository {
   findByEmail(email: string): Promise<User | null>;
+  findByGoogleId(googleId: string): Promise<User | null>;
   findById(id: string, organizationId?: string): Promise<User | null>;
   findAll(filters: FindAllUsersFilters): Promise<FindAllUsersResult>;
   create(data: CreateUserData): Promise<User>;

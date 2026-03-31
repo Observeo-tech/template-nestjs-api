@@ -4,7 +4,9 @@ import { EMAIL_QUEUE_NAME } from './application/constants/email-queue.constants'
 import { EmailQueueService } from './application/services/email-queue.service';
 import { EMAIL_SENDER } from './domain/services/email-sender.interface';
 import { EmailProcessor } from './infrastructure/processors/email.processor';
+import { NoopEmailSender } from './infrastructure/senders/noop-email.sender';
 import { SmtpEmailSender } from './infrastructure/senders/smtp-email.sender';
+import { envConfig } from '@/config/env.config';
 
 @Module({
   imports: [
@@ -25,7 +27,7 @@ import { SmtpEmailSender } from './infrastructure/senders/smtp-email.sender';
     EmailProcessor,
     {
       provide: EMAIL_SENDER,
-      useClass: SmtpEmailSender,
+      useClass: envConfig.email.enabled ? SmtpEmailSender : NoopEmailSender,
     },
   ],
   exports: [EmailQueueService],

@@ -47,6 +47,7 @@ npm run bootstrap
 ```
 
 O bootstrap atualiza o nome do projeto e os metadados básicos usados no app e na documentação.
+Ele também pergunta se Google Auth deve ser habilitado, se o envio de email fica ativo, qual admin inicial deve ser criado e se uma organização base deve nascer junto da seed.
 
 ### 1. Rodar banco de dados
 ```bash
@@ -73,7 +74,7 @@ npm run start:dev
 Credenciais iniciais da seed:
 
 ```bash
-email: admin@cspeixes.local
+email: admin@teste.local
 password: admin123456
 ```
 
@@ -84,7 +85,7 @@ Troque esses valores no `.env` antes de usar em ambiente compartilhado.
 curl -X POST http://localhost:3000/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "admin@cspeixes.local",
+    "email": "admin@teste.local",
     "password": "admin123456"
   }'
 ```
@@ -96,7 +97,7 @@ curl -X POST http://localhost:3000/auth/login \
   "data": {
     "user": {
       "id": "1925012345678901248",
-      "email": "admin@cspeixes.local",
+      "email": "admin@teste.local",
       "name": "Administrador",
       "createdAt": "2024-01-01T00:00:00.000Z",
       "updatedAt": "2024-01-01T00:00:00.000Z"

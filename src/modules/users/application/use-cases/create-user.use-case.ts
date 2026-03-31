@@ -8,7 +8,9 @@ import type {
 } from '@/modules/users/domain/repositories/user.repository.interface';
 import { USER_REPOSITORY } from '@/modules/users/domain/repositories/user.repository.interface';
 
-export interface CreateUserInput extends CreateUserData {}
+export interface CreateUserInput extends Omit<CreateUserData, 'password'> {
+  password: string;
+}
 
 @Injectable()
 export class CreateUserUseCase {

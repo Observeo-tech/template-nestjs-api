@@ -6,7 +6,9 @@ const USERS_TABLE = 'users';
 export class UserModel extends SnowflakeModel {
   declare id: string;
   email!: string;
-  password!: string;
+  password?: string | null;
+  googleId?: string | null;
+  avatarUrl?: string | null;
   name!: string;
   createdAt!: Date;
   updatedAt!: Date;

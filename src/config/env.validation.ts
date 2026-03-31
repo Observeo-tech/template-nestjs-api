@@ -7,6 +7,9 @@ export const envValidationSchema = Joi.object({
     .default('development'),
   PORT: Joi.number().default(3000),
   APP_NAME: Joi.string().default('NestJS API Scaffold'),
+  APP_SLUG: Joi.string()
+    .pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    .default('nestjs-api-scaffold'),
   APP_DESCRIPTION: Joi.string().default(
     'NestJS API Scaffold with Fastify, PostgreSQL, Redis, and feature-first modules',
   ),
@@ -55,19 +58,32 @@ export const envValidationSchema = Joi.object({
   WS_CONNECTION_STATE_RECOVERY_MAX_DISCONNECTION_MS: Joi.number().default(120000),
 
   // Email / SMTP
-  SMTP_HOST: Joi.string().required().messages({
-    'any.required': 'SMTP_HOST is required for email functionality',
-    'string.empty': 'SMTP_HOST cannot be empty',
+  EMAIL_ENABLED: Joi.boolean().default(true),
+  SMTP_HOST: Joi.when('EMAIL_ENABLED', {
+    is: true,
+    then: Joi.string().required().messages({
+      'any.required': 'SMTP_HOST is required for email functionality',
+      'string.empty': 'SMTP_HOST cannot be empty',
+    }),
+    otherwise: Joi.string().optional().allow(''),
   }),
   SMTP_PORT: Joi.number().default(587),
   SMTP_SECURE: Joi.boolean().default(false),
-  SMTP_USER: Joi.string().required().messages({
-    'any.required': 'SMTP_USER is required for email authentication',
-    'string.empty': 'SMTP_USER cannot be empty',
+  SMTP_USER: Joi.when('EMAIL_ENABLED', {
+    is: true,
+    then: Joi.string().required().messages({
+      'any.required': 'SMTP_USER is required for email authentication',
+      'string.empty': 'SMTP_USER cannot be empty',
+    }),
+    otherwise: Joi.string().optional().allow(''),
   }),
-  SMTP_PASS: Joi.string().required().messages({
-    'any.required': 'SMTP_PASS is required for email authentication',
-    'string.empty': 'SMTP_PASS cannot be empty',
+  SMTP_PASS: Joi.when('EMAIL_ENABLED', {
+    is: true,
+    then: Joi.string().required().messages({
+      'any.required': 'SMTP_PASS is required for email authentication',
+      'string.empty': 'SMTP_PASS cannot be empty',
+    }),
+    otherwise: Joi.string().optional().allow(''),
   }),
   SMTP_FROM: Joi.string().email().default('noreply@api.com'),
   APP_URL: Joi.string().uri().required().messages({
@@ -80,9 +96,21 @@ export const envValidationSchema = Joi.object({
     'string.empty': 'API_URL cannot be empty',
     'string.uri': 'API_URL must be a valid URL',
   }),
+  GOOGLE_AUTH_ENABLED: Joi.boolean().default(false),
+  GOOGLE_CLIENT_ID: Joi.when('GOOGLE_AUTH_ENABLED', {
+    is: true,
+    then: Joi.string().required().messages({
+      'any.required': 'GOOGLE_CLIENT_ID is required when Google Auth is enabled',
+      'string.empty': 'GOOGLE_CLIENT_ID cannot be empty when Google Auth is enabled',
+    }),
+    otherwise: Joi.string().optional().allow(''),
+  }),
 
   // CORS
   CORS_ORIGIN: Joi.string().default('*'),
+
+  // Bootstrap seed
+  SEED_ORGANIZATION_NAME: Joi.string().optional().allow(''),
 });
 
 /**

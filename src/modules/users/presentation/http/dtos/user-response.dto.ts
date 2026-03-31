@@ -8,6 +8,7 @@ export const UserResponseSchema = z.object({
   id: snowflakeIdSchema,
   email: z.email(),
   name: z.string(),
+  avatarUrl: z.string().url().nullable().optional(),
   createdAt: DateTimeStringSchema,
   updatedAt: DateTimeStringSchema,
 });
@@ -18,6 +19,7 @@ type UserResponseInput = {
   id: string;
   email: string;
   name: string;
+  avatarUrl?: string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
 };
@@ -27,6 +29,7 @@ export function toUserResponseDto(user: UserResponseInput): UserResponse {
     id: user.id,
     email: user.email,
     name: user.name,
+    avatarUrl: user.avatarUrl ?? null,
     createdAt: normalizeDateTime(user.createdAt),
     updatedAt: normalizeDateTime(user.updatedAt),
   };

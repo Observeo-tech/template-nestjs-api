@@ -11,18 +11,19 @@ Este README foi ajustado para refletir o estado real do projeto hoje. A base já
 - Bootstrap com `NestJS + Fastify`
 - PostgreSQL com `Knex + Objection.js`
 - Redis conectado para `session`, `cache`, `Bull` e adapter de `socket.io`
-- Módulo `auth` com `POST /auth/login`
+- Módulo `auth` com `POST /auth/login` e `POST /auth/google`
 - Módulo `users` com CRUD via `use-cases + Objection.js`
 - Swagger JSON/YAML e interface Scalar em `/docs`
 - Inferência automática de envelopes de resposta para a documentação
+- Bootstrap interativo para nome, infra prefixada, Google Auth, SMTP e seed inicial
 
 ### O que ainda está incompleto
 
-- O login valida email e senha, mas **não grava a sessão** e **não emite JWT**
+- O login por email/senha e Google já grava a sessão, mas a base **ainda não emite JWT**
 - O `AuthGuard` exige `request.session.authenticated` e `request.session.userId` para rotas protegidas
-- Na prática, o CRUD de `users` está protegido, mas a própria API ainda não oferece um fluxo completo para autenticar e então consumir essas rotas
+- O fluxo de autenticação por sessão já existe, mas ainda faltam camadas como refresh token, linking/desvinculação de provedores e UX de frontend
 - A validação HTTP está padronizada com `Zod`
-- SMTP é validado no boot via ambiente, embora ainda não exista uma feature pública de email na base
+- O envio de email pode ser desligado via `EMAIL_ENABLED`, mas a base ainda não traz uma interface pública de administração dessas notificações
 - `cache`, `queue` e `websocket` estão ligados na infraestrutura, mas não há exemplos de rota com cache, processor do Bull ou gateway socket implementados
 - Existe script `test:e2e`, mas não há pasta `test/` no repositório neste momento
 
@@ -66,7 +67,7 @@ src/
 ### Módulos reais da base
 
 - `auth`
-  - expõe `POST /auth/login`
+  - expõe `POST /auth/login` e `POST /auth/google`
   - usa `LoginUseCase`
   - valida request com `Zod`
   - compara senha com `bcrypt`
@@ -86,7 +87,7 @@ src/
 npm run bootstrap
 ```
 
-O script de bootstrap pergunta o nome do projeto, o nome do pacote npm e a descrição da aplicação. Depois ele atualiza `package.json`, `package-lock.json` quando existir, `README.md`, `QUICK_START.md` e as variáveis `APP_NAME` / `APP_DESCRIPTION` em `.env` e `.env.example`.
+O script de bootstrap pergunta o nome do projeto, o nome do pacote npm e a descrição da aplicação. Também permite habilitar Google Auth, ligar/desligar envio de email, prefixar a infraestrutura pelo nome do projeto e configurar o admin/organização iniciais. Depois ele atualiza `package.json`, `package-lock.json` quando existir, `README.md`, `QUICK_START.md` e as variáveis relevantes em `.env` e `.env.example`.
 
 ### 1. Instale dependências
 
@@ -100,13 +101,18 @@ npm install
 cp .env.example .env
 ```
 
-O arquivo `.env.example` já contém os valores locais esperados para PostgreSQL e Redis. Mesmo sem feature de email pronta, o projeto valida estas variáveis no startup:
+O arquivo `.env.example` já contém os valores locais esperados para PostgreSQL e Redis. O bootstrap também prepara as principais flags de autenticação, email e seed:
 
+- `APP_SLUG`
 - `SESSION_SECRET`
+- `EMAIL_ENABLED`
 - `SMTP_HOST`
 - `SMTP_USER`
 - `SMTP_PASS`
 - `APP_URL`
+- `API_URL`
+- `GOOGLE_AUTH_ENABLED`
+- `GOOGLE_CLIENT_ID`
 
 ### 3. Suba PostgreSQL e Redis
 
@@ -142,11 +148,12 @@ Hoje existe uma seed inicial:
 
 - `20260327120000_seed_bootstrap_admin_user.mjs`
 
-Ela cria ou atualiza um usuário admin de bootstrap com base nas variáveis:
+Ela cria ou atualiza um usuário admin de bootstrap e pode criar uma organização inicial com base nas variáveis:
 
 - `SEED_ADMIN_EMAIL`
 - `SEED_ADMIN_NAME`
 - `SEED_ADMIN_PASSWORD`
+- `SEED_ORGANIZATION_NAME`
 
 Troque esses valores antes de rodar as seeds em ambientes compartilhados.
 
@@ -166,8 +173,9 @@ Observação sobre scripts:
 ### Público
 
 - `POST /auth/login`
+- `POST /auth/google`
 
-Body:
+Body para `POST /auth/login`:
 
 ```json
 {
@@ -180,9 +188,23 @@ Comportamento atual:
 
 - busca usuário por email
 - compara senha com `bcrypt`
+- grava a sessão autenticada
 - retorna usuário sem senha
-- pode retornar `token`, mas hoje ele vem vazio porque não há emissão implementada
-- não marca a sessão como autenticada
+
+Para Google Auth:
+
+- o backend recebe um `id_token` do Google
+- valida o token contra o `GOOGLE_CLIENT_ID`
+- cria ou vincula o usuário local pelo email/`google_id`
+- grava a sessão autenticada
+
+Body para `POST /auth/google`:
+
+```json
+{
+  "idToken": "google-id-token"
+}
+```
 
 ### Protegidos por sessão
 
@@ -192,14 +214,14 @@ Comportamento atual:
 - `PATCH /users/:id`
 - `DELETE /users/:id`
 
-Essas rotas dependem do `AuthGuard`, que hoje espera:
+Essas rotas dependem do `AuthGuard`, que espera:
 
 ```ts
 request.session.authenticated === true
 request.session.userId
 ```
 
-Como o login ainda não popula esses campos, o fluxo completo de autenticação/autorização ainda precisa ser concluído.
+Os logins por email/senha e Google já populam esses campos.
 
 ## Documentação da API
 

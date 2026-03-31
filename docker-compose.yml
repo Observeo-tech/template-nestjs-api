@@ -1,18 +1,18 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: api-postgres
+    container_name: ${APP_SLUG:-api}-postgres
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     environment:
-      POSTGRES_USER: api
-      POSTGRES_PASSWORD: api123
-      POSTGRES_DB: api
+      POSTGRES_USER: ${DB_USER:-api}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-api123}
+      POSTGRES_DB: ${DB_NAME:-api}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U api"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-api}"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -21,10 +21,10 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: api-redis
+    container_name: ${APP_SLUG:-api}-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes
@@ -38,10 +38,13 @@ services:
 
 volumes:
   postgres-data:
+    name: ${APP_SLUG:-api}-postgres-data
     driver: local
   redis-data:
+    name: ${APP_SLUG:-api}-redis-data
     driver: local
 
 networks:
   api-network:
+    name: ${APP_SLUG:-api}-network
     driver: bridge

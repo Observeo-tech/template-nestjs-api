@@ -17,6 +17,12 @@ export class UserRepository implements IUserRepository {
     return user ? user.toDomain() : null;
   }
 
+  async findByGoogleId(googleId: string): Promise<User | null> {
+    const user = await UserModel.query().findOne({ googleId });
+
+    return user ? user.toDomain() : null;
+  }
+
   async findById(
     id: string,
     organizationId?: string,
@@ -86,6 +92,8 @@ export class UserRepository implements IUserRepository {
     const user = await UserModel.query().insertAndFetch({
       email: data.email,
       password: data.password,
+      googleId: data.googleId,
+      avatarUrl: data.avatarUrl,
       name: data.name,
     });
 
@@ -101,6 +109,14 @@ export class UserRepository implements IUserRepository {
 
     if (data.password !== undefined) {
       updatePayload.password = data.password;
+    }
+
+    if (data.googleId !== undefined) {
+      updatePayload.googleId = data.googleId;
+    }
+
+    if (data.avatarUrl !== undefined) {
+      updatePayload.avatarUrl = data.avatarUrl;
     }
 
     if (data.name !== undefined) {
