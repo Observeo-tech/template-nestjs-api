@@ -9,7 +9,7 @@ const CSV_DELIMITER = ';';
 export class SpreadsheetReportExporter implements IReportExporter {
   readonly format = 'spreadsheet' as const;
 
-  async export<TRow>(document: ReportDocument<TRow>): Promise<GeneratedReportFile> {
+  export<TRow>(document: ReportDocument<TRow>): Promise<GeneratedReportFile> {
     const lines: string[][] = [];
 
     if (document.branding?.displayName) {
@@ -53,12 +53,12 @@ export class SpreadsheetReportExporter implements IReportExporter {
       .map(line => line.map(value => this.escapeCell(value)).join(CSV_DELIMITER))
       .join('\r\n');
 
-    return {
+    return Promise.resolve({
       format: this.format,
       fileName: `${document.fileName}.csv`,
       contentType: 'text/csv; charset=utf-8',
       buffer: Buffer.from(`\uFEFF${csvContent}`, 'utf8'),
-    };
+    });
   }
 
   private escapeCell(value: string): string {

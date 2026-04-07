@@ -9,10 +9,10 @@ Este README foi ajustado para refletir o estado real do projeto hoje. A base já
 ### O que já existe
 
 - Bootstrap com `NestJS + Fastify`
-- PostgreSQL com `Knex + Objection.js`
+- PostgreSQL com `Objx + pg`
 - Redis conectado para `session`, `cache`, `Bull` e adapter de `socket.io`
 - Módulo `auth` com `POST /auth/login` e `POST /auth/google`
-- Módulo `users` com CRUD via `use-cases + Objection.js`
+- Módulo `users` com CRUD via `use-cases + Objx`
 - Swagger JSON/YAML e interface Scalar em `/docs`
 - Inferência automática de envelopes de resposta para a documentação
 - Bootstrap interativo para nome, infra prefixada, Google Auth, SMTP e seed inicial
@@ -35,8 +35,8 @@ Arquivos como `QUICK_START.md`, `AUTH_EXAMPLE.md` e `ZOD_MIGRATION_GUIDE.md` des
 
 - `NestJS 11`
 - `Fastify`
-- `Knex`
-- `Objection.js`
+- `Objx`
+- `pg`
 - `PostgreSQL`
 - `Redis`
 - `Bull`
@@ -74,8 +74,8 @@ src/
 - `users`
   - expõe CRUD HTTP
   - usa `Zod` + `use-cases` explícitos
-  - persiste `User` com `Objection.js` sobre `Knex`
-  - usa conversão global `camelCase <-> snake_case` na camada de banco
+  - persiste `User` com `Objx`
+  - usa modelos `defineModel(...)` com plugin de `snake_case`
 - `shared/infrastructure`
   - centraliza banco, cache, fila e session storage
 
@@ -132,11 +132,7 @@ docker-compose up -d
 npm run migrate:latest
 ```
 
-Hoje existe uma migration inicial:
-
-- `20260206193945_create_users_table.mjs`
-
-Ela cria apenas a tabela `users`.
+Hoje a base já traz migrations para `users`, `auth`, `organizations`, `permissions` e `reports`, executadas pelos wrappers de migration do Objx em `scripts/database/*`.
 
 ### 5. Rode as seeds
 
@@ -144,11 +140,9 @@ Ela cria apenas a tabela `users`.
 npm run seed:run
 ```
 
-Hoje existe uma seed inicial:
+Hoje a base já traz seeds para bootstrap do admin e catálogo inicial de permissões.
 
-- `20260327120000_seed_bootstrap_admin_user.mjs`
-
-Ela cria ou atualiza um usuário admin de bootstrap e pode criar uma organização inicial com base nas variáveis:
+A seed de bootstrap cria ou atualiza um usuário admin e pode criar uma organização inicial com base nas variáveis:
 
 - `SEED_ADMIN_EMAIL`
 - `SEED_ADMIN_NAME`

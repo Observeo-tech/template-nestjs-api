@@ -1,20 +1,9 @@
-import knex from 'knex';
-import { createKnexConfig } from './shared-config.mjs';
-import { runPendingSeeds } from './shared-seed-runner.mjs';
+import { createDatabaseUrl, runCodegenCli, seedsDirectory } from './shared-config.mjs';
 
-const db = knex(createKnexConfig());
-
-try {
-  const { batchNumber, executedSeeds } = await runPendingSeeds(db);
-
-  if (executedSeeds.length === 0) {
-    console.log('No pending seeds found.');
-  } else {
-    console.log(`Applied seed batch ${batchNumber}:`);
-    executedSeeds.forEach((seedName) => {
-      console.log(`- ${seedName}`);
-    });
-  }
-} finally {
-  await db.destroy();
-}
+runCodegenCli([
+  'seed',
+  '--dialect', 'postgres',
+  '--database', createDatabaseUrl(),
+  '--dir', seedsDirectory,
+  '--direction', 'run',
+]);

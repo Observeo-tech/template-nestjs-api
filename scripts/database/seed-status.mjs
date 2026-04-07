@@ -1,30 +1,31 @@
-import knex from 'knex';
-import { createKnexConfig } from './shared-config.mjs';
-import { listSeedStatus } from './shared-seed-runner.mjs';
+import {
+  listAppliedSchemaNames,
+  loadSchemaEntries,
+  seedsDirectory,
+} from './shared-config.mjs';
 
-const db = knex(createKnexConfig());
+const historyNames = new Set(
+  await listAppliedSchemaNames('objx_seed_history'),
+);
+const schemas = await loadSchemaEntries(seedsDirectory, 'seed');
+const completed = schemas.filter((schema) => historyNames.has(schema.name));
+const pending = schemas.filter((schema) => !historyNames.has(schema.name));
 
-try {
-  const { completedSeeds, pendingSeeds } = await listSeedStatus(db);
+console.log('Completed seeds:');
+if (completed.length === 0) {
+  console.log('- none');
+} else {
+  completed.forEach((schema) => {
+    console.log(`- ${schema.name} (${schema.fileName})`);
+  });
+}
 
-  console.log('Completed seeds:');
-  if (completedSeeds.length === 0) {
-    console.log('- none');
-  } else {
-    completedSeeds.forEach((seed) => {
-      console.log(`- [batch ${seed.batch}] ${seed.name} (${seed.run_on})`);
-    });
-  }
-
-  console.log('');
-  console.log('Pending seeds:');
-  if (pendingSeeds.length === 0) {
-    console.log('- none');
-  } else {
-    pendingSeeds.forEach((seedName) => {
-      console.log(`- ${seedName}`);
-    });
-  }
-} finally {
-  await db.destroy();
+console.log('');
+console.log('Pending seeds:');
+if (pending.length === 0) {
+  console.log('- none');
+} else {
+  pending.forEach((schema) => {
+    console.log(`- ${schema.name} (${schema.fileName})`);
+  });
 }

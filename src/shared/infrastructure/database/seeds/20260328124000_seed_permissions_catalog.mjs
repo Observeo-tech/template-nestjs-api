@@ -1,3 +1,5 @@
+import { defineSeed } from '@qbobjx/codegen';
+
 const FEATURES = [
   {
     id: '710000000000001001',
@@ -164,143 +166,178 @@ function generateId() {
   return nextGeneratedId.toString();
 }
 
-/** @param {import('knex').Knex} knex */
-export async function seed(knex) {
-  await upsertLookupTable(knex, 'permission_features', FEATURES, ['name', 'description']);
-  await upsertLookupTable(knex, 'permission_actions', ACTIONS, ['name', 'description']);
-  await upsertLookupTable(
-    knex,
-    'permissions',
-    PERMISSIONS.map(({ id, code, description, featureId, actionId }) => ({
-      id,
-      code,
-      description,
-      feature_id: featureId,
-      action_id: actionId,
-    })),
-    ['description', 'feature_id', 'action_id'],
-  );
-  await upsertLookupTable(
-    knex,
-    'roles',
-    ROLES.map(({ id, code, name, description }) => ({
-      id,
-      code,
-      name,
-      description,
-      is_system: true,
-    })),
-    ['name', 'description', 'is_system'],
-  );
-
-  const roleIdByCode = Object.fromEntries(ROLES.map(role => [role.code, role.id]));
-  const permissionIdByCode = Object.fromEntries(
-    PERMISSIONS.map(permission => [permission.code, permission.id]),
-  );
-
-  for (const [roleCode, permissionCode] of ROLE_PERMISSIONS) {
-    const roleId = roleIdByCode[roleCode];
-    const permissionId = permissionIdByCode[permissionCode];
-
-    await knex('role_permissions')
-      .insert({
-        id: generateId(),
-        role_id: roleId,
-        permission_id: permissionId,
-      })
-      .onConflict(['role_id', 'permission_id'])
-      .ignore();
+function sqlValue(value) {
+  if (value === null) {
+    return 'null';
   }
 
-  const memberships = await knex('organization_memberships')
-    .select('id', 'role');
-
-  for (const membership of memberships) {
-    const roleCode = LEGACY_ORGANIZATION_ROLE_MAP[membership.role] ?? 'org_member';
-    const roleId = roleIdByCode[roleCode];
-
-    await knex('organization_membership_roles')
-      .insert({
-        id: generateId(),
-        membership_id: membership.id,
-        role_id: roleId,
-      })
-      .onConflict(['membership_id', 'role_id'])
-      .ignore();
+  if (typeof value === 'boolean') {
+    return value ? 'true' : 'false';
   }
 
-  return {
-    featureCodes: FEATURES.map(feature => feature.code),
-    permissionCodes: PERMISSIONS.map(permission => permission.code),
-    roleCodes: ROLES.map(role => role.code),
-  };
+  if (typeof value === 'number' || typeof value === 'bigint') {
+    return String(value);
+  }
+
+  return `'${String(value).replace(/'/g, "''")}'`;
 }
 
-/**
- * @param {import('knex').Knex} knex
- * @param {{ featureCodes?: string[], permissionCodes?: string[], roleCodes?: string[] } | null | undefined} meta
- */
-export async function down(knex, meta) {
-  const permissionCodes = meta?.permissionCodes ?? PERMISSIONS.map(permission => permission.code);
-  const roleCodes = meta?.roleCodes ?? ROLES.map(role => role.code);
-  const featureCodes = meta?.featureCodes ?? FEATURES.map(feature => feature.code);
-  const actionCodes = ACTIONS.map(action => action.code);
-
-  const roleRows = await knex('roles')
-    .select('id')
-    .whereIn('code', roleCodes);
-  const roleIds = roleRows.map(row => row.id);
-
-  if (roleIds.length > 0) {
-    await knex('organization_membership_roles')
-      .whereIn('role_id', roleIds)
-      .delete();
-
-    await knex('role_permissions')
-      .whereIn('role_id', roleIds)
-      .delete();
-  }
-
-  await knex('roles')
-    .whereIn('code', roleCodes)
-    .delete();
-
-  await knex('organization_user_permissions')
-    .whereIn(
-      'permission_id',
-      knex('permissions').select('id').whereIn('code', permissionCodes),
-    )
-    .delete();
-
-  await knex('permissions')
-    .whereIn('code', permissionCodes)
-    .delete();
-
-  await knex('permission_actions')
-    .whereIn('code', actionCodes)
-    .delete();
-
-  await knex('permission_features')
-    .whereIn('code', featureCodes)
-    .delete();
+function sqlValues(row) {
+  return Object.values(row).map((value) => sqlValue(value)).join(', ');
 }
 
-/**
- * @param {import('knex').Knex} knex
- * @param {string} tableName
- * @param {Array<Record<string, unknown>>} rows
- * @param {string[]} mergeColumns
- */
-async function upsertLookupTable(knex, tableName, rows, mergeColumns) {
-  for (const row of rows) {
-    const mergePayload = mergeColumns.reduce((accumulator, column) => {
-      accumulator[column] = row[column];
-      return accumulator;
-    }, { updated_at: knex.fn.now() });
+async function upsertByCode(context, tableName, row, mergeColumns) {
+  const columns = Object.keys(row).join(', ');
+  const mergeAssignments = mergeColumns
+    .map((column) => `${column} = excluded.${column}`)
+    .concat('updated_at = now()')
+    .join(', ');
 
-    await knex(tableName)
-      .insert(row)
-      .onConflict('code')
-      .merge(mergePayload);
-  }
+  await context.execute(`
+    insert into ${tableName} (${columns})
+    values (${sqlValues(row)})
+    on conflict (code) do update
+    set ${mergeAssignments};
+  `);
 }
+
+export default defineSeed({
+  name: '20260328124000_seed_permissions_catalog',
+  description: 'seed permissions catalog',
+  async run(context) {
+    for (const feature of FEATURES) {
+      await upsertByCode(context, 'permission_features', feature, [
+        'name',
+        'description',
+      ]);
+    }
+
+    for (const action of ACTIONS) {
+      await upsertByCode(context, 'permission_actions', action, [
+        'name',
+        'description',
+      ]);
+    }
+
+    for (const permission of PERMISSIONS) {
+      await upsertByCode(
+        context,
+        'permissions',
+        {
+          id: permission.id,
+          code: permission.code,
+          description: permission.description,
+          feature_id: permission.featureId,
+          action_id: permission.actionId,
+        },
+        ['description', 'feature_id', 'action_id'],
+      );
+    }
+
+    for (const role of ROLES) {
+      await upsertByCode(
+        context,
+        'roles',
+        {
+          id: role.id,
+          code: role.code,
+          name: role.name,
+          description: role.description,
+          is_system: true,
+        },
+        ['name', 'description', 'is_system'],
+      );
+    }
+
+    const roleIdByCode = Object.fromEntries(ROLES.map((role) => [role.code, role.id]));
+    const permissionIdByCode = Object.fromEntries(
+      PERMISSIONS.map((permission) => [permission.code, permission.id]),
+    );
+
+    for (const [roleCode, permissionCode] of ROLE_PERMISSIONS) {
+      await context.execute(`
+        insert into role_permissions (
+          id,
+          role_id,
+          permission_id
+        )
+        values (
+          ${generateId()},
+          ${roleIdByCode[roleCode]},
+          ${permissionIdByCode[permissionCode]}
+        )
+        on conflict (role_id, permission_id) do nothing;
+      `);
+    }
+
+    const legacyRoleEntries = Object.entries(LEGACY_ORGANIZATION_ROLE_MAP);
+
+    for (const [legacyRole, systemRoleCode] of legacyRoleEntries) {
+      await context.execute(`
+        insert into organization_membership_roles (
+          id,
+          membership_id,
+          role_id
+        )
+        select
+          om.id,
+          om.id,
+          ${roleIdByCode[systemRoleCode]}
+        from organization_memberships om
+        where om.role = ${sqlValue(legacyRole)}
+        on conflict (membership_id, role_id) do nothing;
+      `);
+    }
+  },
+  async revert(context) {
+    const permissionCodes = PERMISSIONS.map((permission) => permission.code);
+    const roleCodes = ROLES.map((role) => role.code);
+    const featureCodes = FEATURES.map((feature) => feature.code);
+    const actionCodes = ACTIONS.map((action) => action.code);
+    const roleCodeList = roleCodes.map((code) => sqlValue(code)).join(', ');
+    const permissionCodeList = permissionCodes.map((code) => sqlValue(code)).join(', ');
+    const featureCodeList = featureCodes.map((code) => sqlValue(code)).join(', ');
+    const actionCodeList = actionCodes.map((code) => sqlValue(code)).join(', ');
+
+    await context.execute(`
+      delete from organization_membership_roles
+      where role_id in (
+        select id from roles where code in (${roleCodeList})
+      );
+    `);
+
+    await context.execute(`
+      delete from role_permissions
+      where role_id in (
+        select id from roles where code in (${roleCodeList})
+      );
+    `);
+
+    await context.execute(`
+      delete from roles
+      where code in (${roleCodeList});
+    `);
+
+    await context.execute(`
+      delete from organization_user_permissions
+      where permission_id in (
+        select id from permissions where code in (${permissionCodeList})
+      );
+    `);
+
+    await context.execute(`
+      delete from permissions
+      where code in (${permissionCodeList});
+    `);
+
+    await context.execute(`
+      delete from permission_actions
+      where code in (${actionCodeList});
+    `);
+
+    await context.execute(`
+      delete from permission_features
+      where code in (${featureCodeList});
+    `);
+  },
+});

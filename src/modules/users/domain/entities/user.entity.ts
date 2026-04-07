@@ -16,6 +16,7 @@ export class User {
 export type PublicUser = Omit<User, 'password'>;
 
 export function toPublicUser(user: User): PublicUser {
-  const { password: _, ...publicUser } = user;
+  const publicUser = { ...user };
+  delete publicUser.password;
   return publicUser;
 }

@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { ORGANIZATION_REPORT_SETTINGS_REPOSITORY } from '@/modules/reports/domain/repositories/organization-report-settings.repository.interface';
-import type { IOrganizationReportSettingsRepository } from '@/modules/reports/domain/repositories/organization-report-settings.repository.interface';
+import {
+  ORGANIZATION_REPORT_SETTINGS_REPOSITORY,
+  type IOrganizationReportSettingsRepository,
+} from '@/modules/reports/domain/repositories/organization-report-settings.repository.interface';
 import { UsersReportDefinition } from '../definitions/users-report.definition';
 import { ReportExportService } from '../services/report-export.service';
 import type {

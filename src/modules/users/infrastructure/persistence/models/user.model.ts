@@ -1,36 +1,21 @@
-import { User } from '@/modules/users/domain/entities/user.entity';
-import { SnowflakeModel } from '@/shared/infrastructure/database/models/snowflake.model';
+import { col, defineModel, type InferModelShape } from '@qbobjx/core';
+import { createSnakeCaseNamingPlugin } from '@qbobjx/plugins';
+import { snowflakeIdColumn } from '@/shared/infrastructure/database/objx-columns';
 
-const USERS_TABLE = 'users';
+export const UserModel = defineModel({
+  name: 'User',
+  table: 'users',
+  columns: {
+    id: snowflakeIdColumn().primary(),
+    email: col.text(),
+    password: col.text().nullable(),
+    googleId: col.text().nullable(),
+    avatarUrl: col.text().nullable(),
+    name: col.text(),
+    createdAt: col.timestamp().generated(),
+    updatedAt: col.timestamp().generated(),
+  },
+  plugins: [createSnakeCaseNamingPlugin()],
+});
 
-export class UserModel extends SnowflakeModel {
-  declare id: string;
-  email!: string;
-  password?: string | null;
-  googleId?: string | null;
-  avatarUrl?: string | null;
-  name!: string;
-  createdAt!: Date;
-  updatedAt!: Date;
-
-  static tableName = USERS_TABLE;
-  static idColumn = 'id';
-
-  $parseDatabaseJson(json: Record<string, unknown>): Record<string, unknown> {
-    const parsed = super.$parseDatabaseJson(json);
-
-    if (typeof parsed.createdAt === 'string') {
-      parsed.createdAt = new Date(parsed.createdAt);
-    }
-
-    if (typeof parsed.updatedAt === 'string') {
-      parsed.updatedAt = new Date(parsed.updatedAt);
-    }
-
-    return parsed;
-  }
-
-  toDomain(): User {
-    return new User(this);
-  }
-}
+export type UserRecord = InferModelShape<typeof UserModel>;

@@ -28,20 +28,24 @@ const timestamp = new Date()
   .replace(/[-:TZ.]/g, '')
   .slice(0, 14);
 
-const fileName = `${timestamp}_${normalizedName}.mjs`;
+const schemaName = `${timestamp}_${normalizedName}`;
+const fileName = `${schemaName}.migration.mjs`;
 const filePath = path.join(migrationsDirectory, fileName);
 
 if (fs.existsSync(filePath)) {
   fail(`Migration "${fileName}" already exists.`);
 }
 
-const template = `/** @param {import('knex').Knex} knex */
-export async function up(knex) {
-}
+const template = `import { defineMigration } from '@qbobjx/codegen';
 
-/** @param {import('knex').Knex} knex */
-export async function down(knex) {
-}
+export default defineMigration({
+  name: '${schemaName}',
+  description: '${normalizedName.replace(/_/g, ' ')}',
+  up: [
+  ],
+  down: [
+  ],
+});
 `;
 
 fs.mkdirSync(migrationsDirectory, { recursive: true });

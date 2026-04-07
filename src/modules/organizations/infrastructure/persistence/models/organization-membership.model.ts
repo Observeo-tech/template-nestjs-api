@@ -1,32 +1,20 @@
-import { SnowflakeModel } from '@/shared/infrastructure/database/models/snowflake.model';
+import { col, defineModel, type InferModelShape } from '@qbobjx/core';
+import { createSnakeCaseNamingPlugin } from '@qbobjx/plugins';
+import { snowflakeIdColumn } from '@/shared/infrastructure/database/objx-columns';
 
-const ORGANIZATION_MEMBERSHIPS_TABLE = 'organization_memberships';
+export const OrganizationMembershipModel = defineModel({
+  name: 'OrganizationMembership',
+  table: 'organization_memberships',
+  columns: {
+    id: snowflakeIdColumn().primary(),
+    organizationId: snowflakeIdColumn(),
+    userId: snowflakeIdColumn(),
+    role: col.text(),
+    createdAt: col.timestamp().generated(),
+  },
+  plugins: [createSnakeCaseNamingPlugin()],
+});
 
-export class OrganizationMembershipModel extends SnowflakeModel {
-  declare id: string;
-  organizationId!: string;
-  userId!: string;
-  role!: string;
-  createdAt!: Date;
-
-  static tableName = ORGANIZATION_MEMBERSHIPS_TABLE;
-  static idColumn = 'id';
-
-  $parseDatabaseJson(json: Record<string, unknown>): Record<string, unknown> {
-    const parsed = super.$parseDatabaseJson(json);
-
-    if (parsed.organizationId !== undefined && parsed.organizationId !== null) {
-      parsed.organizationId = String(parsed.organizationId);
-    }
-
-    if (parsed.userId !== undefined && parsed.userId !== null) {
-      parsed.userId = String(parsed.userId);
-    }
-
-    if (typeof parsed.createdAt === 'string') {
-      parsed.createdAt = new Date(parsed.createdAt);
-    }
-
-    return parsed;
-  }
-}
+export type OrganizationMembershipRecord = InferModelShape<
+  typeof OrganizationMembershipModel
+>;

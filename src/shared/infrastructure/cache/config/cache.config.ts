@@ -1,8 +1,8 @@
 import { RedisModuleOptions } from '@nestjs-modules/ioredis';
 import { envConfig } from '@/config/env.config';
 
-export const cacheConfig = async (): Promise<RedisModuleOptions> => {
-  return {
+export const cacheConfig = (): Promise<RedisModuleOptions> => {
+  return Promise.resolve({
     type: 'single',
     options: {
       host: envConfig.redis.host,
@@ -10,5 +10,5 @@ export const cacheConfig = async (): Promise<RedisModuleOptions> => {
       password: envConfig.redis.password,
       db: envConfig.redis.db,
     },
-  };
+  });
 };

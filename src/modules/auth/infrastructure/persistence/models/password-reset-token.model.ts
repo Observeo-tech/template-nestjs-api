@@ -1,37 +1,20 @@
-import { PasswordResetToken } from '@/modules/auth/domain/entities/password-reset-token.entity';
-import { SnowflakeModel } from '@/shared/infrastructure/database/models/snowflake.model';
+import { col, defineModel, type InferModelShape } from '@qbobjx/core';
+import { createSnakeCaseNamingPlugin } from '@qbobjx/plugins';
+import { snowflakeIdColumn } from '@/shared/infrastructure/database/objx-columns';
 
-const PASSWORD_RESET_TOKENS_TABLE = 'password_reset_tokens';
+export const PasswordResetTokenModel = defineModel({
+  name: 'PasswordResetToken',
+  table: 'password_reset_tokens',
+  columns: {
+    id: snowflakeIdColumn().primary(),
+    userId: snowflakeIdColumn(),
+    tokenHash: col.text(),
+    expiresAt: col.timestamp(),
+    createdAt: col.timestamp().generated(),
+  },
+  plugins: [createSnakeCaseNamingPlugin()],
+});
 
-export class PasswordResetTokenModel extends SnowflakeModel {
-  declare id: string;
-  userId!: string;
-  tokenHash!: string;
-  expiresAt!: Date;
-  createdAt!: Date;
-
-  static tableName = PASSWORD_RESET_TOKENS_TABLE;
-  static idColumn = 'id';
-
-  $parseDatabaseJson(json: Record<string, unknown>): Record<string, unknown> {
-    const parsed = super.$parseDatabaseJson(json);
-
-    if (parsed.userId !== undefined && parsed.userId !== null) {
-      parsed.userId = String(parsed.userId);
-    }
-
-    if (typeof parsed.expiresAt === 'string') {
-      parsed.expiresAt = new Date(parsed.expiresAt);
-    }
-
-    if (typeof parsed.createdAt === 'string') {
-      parsed.createdAt = new Date(parsed.createdAt);
-    }
-
-    return parsed;
-  }
-
-  toDomain(): PasswordResetToken {
-    return new PasswordResetToken(this);
-  }
-}
+export type PasswordResetTokenRecord = InferModelShape<
+  typeof PasswordResetTokenModel
+>;

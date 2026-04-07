@@ -8,7 +8,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiBody, ApiTags } from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
 import { CreateUserUseCase } from '@/modules/users/application/use-cases/create-user.use-case';
 import { DeleteUserUseCase } from '@/modules/users/application/use-cases/delete-user.use-case';
 import { FindUserUseCase } from '@/modules/users/application/use-cases/find-user.use-case';

@@ -1,30 +1,24 @@
-/** @param {import('knex').Knex} knex */
-export async function up(knex) {
-  await knex.raw('ALTER TABLE users ALTER COLUMN password DROP NOT NULL');
+import { defineMigration } from '@qbobjx/codegen';
 
-  await knex.schema.alterTable('users', (table) => {
-    table.string('google_id', 255).nullable();
-    table.text('avatar_url').nullable();
-    table.unique(['google_id'], 'UQ_users_google_id');
-    table.index(['google_id'], 'IDX_users_google_id');
-  });
-}
-
-/** @param {import('knex').Knex} knex */
-export async function down(knex) {
-  await knex('users')
-    .whereNull('password')
-    .update({
-      password: '__google_auth_removed__',
-      updated_at: knex.fn.now(),
-    });
-
-  await knex.schema.alterTable('users', (table) => {
-    table.dropIndex(['google_id'], 'IDX_users_google_id');
-    table.dropUnique(['google_id'], 'UQ_users_google_id');
-    table.dropColumn('google_id');
-    table.dropColumn('avatar_url');
-  });
-
-  await knex.raw('ALTER TABLE users ALTER COLUMN password SET NOT NULL');
-}
+export default defineMigration({
+  name: '20260331143000_add_google_auth_to_users_table',
+  description: 'add google auth to users table',
+  up: [
+    'alter table users alter column password drop not null;',
+    'alter table users add column google_id varchar(255) null;',
+    'alter table users add column avatar_url text null;',
+    'create unique index "UQ_users_google_id" on users (google_id);',
+    'create index "IDX_users_google_id" on users (google_id);',
+  ],
+  down: [
+    `update users
+     set password = '__google_auth_removed__',
+         updated_at = now()
+     where password is null;`,
+    'drop index if exists "IDX_users_google_id";',
+    'drop index if exists "UQ_users_google_id";',
+    'alter table users drop column if exists google_id;',
+    'alter table users drop column if exists avatar_url;',
+    'alter table users alter column password set not null;',
+  ],
+});

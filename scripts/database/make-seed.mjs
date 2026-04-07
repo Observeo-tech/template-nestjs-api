@@ -28,24 +28,24 @@ const timestamp = new Date()
   .replace(/[-:TZ.]/g, '')
   .slice(0, 14);
 
-const fileName = `${timestamp}_${normalizedName}.mjs`;
+const schemaName = `${timestamp}_${normalizedName}`;
+const fileName = `${schemaName}.seed.mjs`;
 const filePath = path.join(seedsDirectory, fileName);
 
 if (fs.existsSync(filePath)) {
   fail(`Seed "${fileName}" already exists.`);
 }
 
-const template = `/** @param {import('knex').Knex} knex */
-export async function seed(knex) {
-  return null;
-}
+const template = `import { defineSeed } from '@qbobjx/codegen';
 
-/**
- * @param {import('knex').Knex} knex
- * @param {unknown} meta
- */
-export async function down(knex, meta) {
-}
+export default defineSeed({
+  name: '${schemaName}',
+  description: '${normalizedName.replace(/_/g, ' ')}',
+  run: [
+  ],
+  revert: [
+  ],
+});
 `;
 
 fs.mkdirSync(seedsDirectory, { recursive: true });

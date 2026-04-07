@@ -21,32 +21,29 @@ describe('enrichSwaggerResponsesFromSource', () => {
       document.paths?.['/users/{id}']?.patch?.responses?.['200']?.content?.[
         'application/json'
       ]?.schema;
+    const deleteResponse =
+      document.paths?.['/users/{id}']?.delete?.responses?.['200']?.content?.[
+        'application/json'
+      ]?.schema;
+    const createDataSchema = createResponse?.properties?.data as Record<string, any>;
+    const listItemSchema = listResponse?.properties?.data?.items as Record<string, any>;
 
-    expect(createResponse?.properties?.data?.$ref).toBe(
-      '#/components/schemas/UserInferred',
-    );
-    expect(getOneResponse?.properties?.data?.$ref).toBe(
-      '#/components/schemas/UserInferred',
-    );
+    expect(createDataSchema?.type).toBe('object');
+    expect(getOneResponse?.properties?.data).toEqual(createDataSchema);
     expect(listResponse?.properties?.data?.type).toBe('array');
-    expect(listResponse?.properties?.data?.items?.$ref).toBe(
-      '#/components/schemas/UserInferred',
-    );
+    expect(listItemSchema).toEqual(createDataSchema);
     expect(listResponse?.properties?.meta?.$ref).toBe(
       '#/components/schemas/PaginationMetaDtoInferred',
     );
-    expect(updateResponse?.properties?.data?.nullable).toBe(true);
-    expect(updateResponse?.properties?.data?.example).toBeNull();
+    expect(updateResponse?.properties?.data).toEqual(createDataSchema);
+    expect(deleteResponse?.properties?.data?.nullable).toBe(true);
+    expect(deleteResponse?.properties?.data?.example).toBeNull();
 
-    const userSchema = document.components?.schemas?.UserInferred as Record<
-      string,
-      any
-    >;
-
-    expect(userSchema.properties.password).toBeUndefined();
-    expect(userSchema.properties.id.type).toBe('string');
-    expect(userSchema.properties.id.format).toBeUndefined();
-    expect(userSchema.properties.email.example).toBe('user@example.com');
+    expect(createDataSchema.properties.password).toBeUndefined();
+    expect(createDataSchema.properties.id.type).toBe('string');
+    expect(createDataSchema.properties.id.format).toBeUndefined();
+    expect(createDataSchema.properties.email.type).toBe('string');
+    expect(createDataSchema.properties.avatarUrl.nullable).toBe(true);
   });
 });
 

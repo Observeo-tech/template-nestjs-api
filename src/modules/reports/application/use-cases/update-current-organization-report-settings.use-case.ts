@@ -1,7 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { UpdateOrganizationReportSettingsInput } from '@/modules/reports/domain/repositories/organization-report-settings.repository.interface';
-import { ORGANIZATION_REPORT_SETTINGS_REPOSITORY } from '@/modules/reports/domain/repositories/organization-report-settings.repository.interface';
-import type { IOrganizationReportSettingsRepository } from '@/modules/reports/domain/repositories/organization-report-settings.repository.interface';
+import {
+  ORGANIZATION_REPORT_SETTINGS_REPOSITORY,
+  type IOrganizationReportSettingsRepository,
+  type UpdateOrganizationReportSettingsInput,
+} from '@/modules/reports/domain/repositories/organization-report-settings.repository.interface';
 
 @Injectable()
 export class UpdateCurrentOrganizationReportSettingsUseCase {

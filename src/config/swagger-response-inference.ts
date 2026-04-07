@@ -123,10 +123,6 @@ function visitControllerClasses(
         continue;
       }
 
-      if (hasObjectLiteralProperty(apiDocDecorator, 'response')) {
-        continue;
-      }
-
       const httpDecorator = getHttpDecorator(member);
       if (!httpDecorator) {
         continue;
@@ -358,6 +354,8 @@ function buildObjectSchema(type: ts.Type, context: InferenceContext): any {
         (candidate) =>
           ts.isPropertyDeclaration(candidate) ||
           ts.isPropertySignature(candidate) ||
+          ts.isPropertyAssignment(candidate) ||
+          ts.isShorthandPropertyAssignment(candidate) ||
           ts.isParameter(candidate),
       );
 
@@ -863,22 +861,6 @@ function getFirstStringArgument(call: ts.CallExpression | ts.Decorator): string 
 
   const [firstArgument] = expression.arguments;
   return firstArgument && ts.isStringLiteralLike(firstArgument) ? firstArgument.text : '';
-}
-
-function hasObjectLiteralProperty(
-  call: ts.CallExpression,
-  propertyName: string,
-): boolean {
-  const objectLiteral = getObjectLiteralArgument(call);
-  if (!objectLiteral) {
-    return false;
-  }
-
-  return objectLiteral.properties.some(
-    (property) =>
-      ts.isPropertyAssignment(property) &&
-      getPropertyName(property.name) === propertyName,
-  );
 }
 
 function getStringPropertyFromDecorator(

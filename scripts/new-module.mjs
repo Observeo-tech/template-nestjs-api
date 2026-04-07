@@ -283,6 +283,8 @@ function createContext(moduleInput, entityOverride) {
     moduleImportPath: `@/modules/${moduleName}/${moduleName}.module`,
     moduleName,
     moduleSentenceName: toSentenceCase(moduleName),
+    modelClass: `${entityClass}Model`,
+    modelFileName: `${entityName}.model.ts`,
     persistenceModuleClass: `${moduleClass}PersistenceModule`,
     persistenceModuleFileName: `${moduleName}-persistence.module.ts`,
     repositoryClass: `${entityClass}Repository`,
@@ -351,6 +353,7 @@ export const ${ctx.repositoryToken} = Symbol('${ctx.repositoryInterfaceName}');
 
 function createRepositoryTemplate(ctx) {
   return `import { Inject, Injectable } from '@nestjs/common';
+import { expr } from '@qbobjx/core';
 import { ${ctx.entityClass} } from '@/modules/${ctx.moduleName}/domain/entities/${ctx.entityName}.entity';
 import {
   Create${ctx.entityClass}Data,
@@ -358,89 +361,99 @@ import {
   FindAll${ctx.moduleClass}Result,
   ${ctx.repositoryInterfaceName},
   Update${ctx.entityClass}Data,
-  ${ctx.repositoryToken},
 } from '@/modules/${ctx.moduleName}/domain/repositories/${ctx.entityName}.repository.interface';
-import { KNEX_CONNECTION } from '@/shared/infrastructure/database/database.constants';
-import { Knex } from 'knex';
+import { generateSnowflakeId } from '@/shared/ids/snowflake-id.util';
+import { OBJX_SESSION } from '@/shared/infrastructure/database/database.tokens';
+import type { ObjxSession } from '@/shared/infrastructure/database/database.types';
+import { ${ctx.modelClass}, type ${ctx.entityClass}Record } from '../models/${ctx.entityName}.model';
 
-const TABLE_NAME = '${ctx.moduleName}';
-
-type ${ctx.entityClass}Row = {
-  id: string;
-  name: string;
-  created_at: Date | string;
-  updated_at: Date | string;
-};
-
-function normalizeDate(value: Date | string): Date {
-  return value instanceof Date ? value : new Date(value);
-}
-
-function map${ctx.entityClass}(row: ${ctx.entityClass}Row): ${ctx.entityClass} {
+function map${ctx.entityClass}(row: ${ctx.entityClass}Record): ${ctx.entityClass} {
   return new ${ctx.entityClass}({
     id: row.id,
     name: row.name,
-    createdAt: normalizeDate(row.created_at),
-    updatedAt: normalizeDate(row.updated_at),
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   });
 }
 
 @Injectable()
 export class ${ctx.repositoryClass} implements ${ctx.repositoryInterfaceName} {
   constructor(
-    @Inject(KNEX_CONNECTION)
-    private readonly knex: Knex,
+    @Inject(OBJX_SESSION)
+    private readonly objxSession: ObjxSession,
   ) {}
 
   async findById(id: string): Promise<${ctx.entityClass} | null> {
-    const row = await this.knex<${ctx.entityClass}Row>(TABLE_NAME)
-      .where({ id })
-      .first();
+    const rows = await this.objxSession.execute(
+      ${ctx.modelClass}
+        .query()
+        .where(({ id: entityId }, op) => op.eq(entityId, id))
+        .limit(1),
+    );
+    const row = rows[0];
 
     return row ? map${ctx.entityClass}(row) : null;
   }
 
   async findAll(filters: FindAll${ctx.moduleClass}Filters): Promise<FindAll${ctx.moduleClass}Result> {
-    const query = this.knex<${ctx.entityClass}Row>(TABLE_NAME);
+    let countQuery = ${ctx.modelClass}.query();
+    let rowsQuery = ${ctx.modelClass}
+      .query()
+      .orderBy(({ createdAt }) => createdAt, 'desc');
 
     if (filters.id) {
-      query.where('id', filters.id);
+      countQuery = countQuery.where(({ id }, op) => op.eq(id, filters.id));
+      rowsQuery = rowsQuery.where(({ id }, op) => op.eq(id, filters.id));
     }
 
     if (filters.name) {
-      query.where('name', filters.name);
+      countQuery = countQuery.where(({ name }, op) => op.eq(name, filters.name));
+      rowsQuery = rowsQuery.where(({ name }, op) => op.eq(name, filters.name));
     }
 
-    const countResult = await query
-      .clone()
-      .count<{ total: string | number }>({ total: '*' })
-      .first();
-
-    const rows = await query
-      .clone()
-      .select('*')
-      .orderBy('created_at', 'desc')
+    rowsQuery = rowsQuery
       .offset((filters.pageCount - 1) * filters.recordsPerPage)
       .limit(filters.recordsPerPage);
 
+    const [countRows, rows] = await Promise.all([
+      this.objxSession.execute(
+        countQuery.selectExpr('total', ({ id }) => expr.count<number>(id)),
+      ),
+      this.objxSession.execute(rowsQuery),
+    ]);
+    const total = Number(countRows[0]?.total ?? 0);
+
     return {
       data: rows.map(map${ctx.entityClass}),
-      total: Number(countResult?.total ?? 0),
+      total,
     };
   }
 
   async create(data: Create${ctx.entityClass}Data): Promise<${ctx.entityClass}> {
-    const [row] = await this.knex<${ctx.entityClass}Row>(TABLE_NAME)
-      .insert({
-        name: data.name,
-      })
-      .returning('*');
+    const rows = await this.objxSession.execute(
+      ${ctx.modelClass}
+        .insert({
+          id: generateSnowflakeId(),
+          name: data.name,
+        })
+        .returning(({ id, name, createdAt, updatedAt }) => [
+          id,
+          name,
+          createdAt,
+          updatedAt,
+        ]),
+    );
+    const row = rows[0];
+
+    if (!row) {
+      throw new Error('${ctx.entityClass} insert did not return a row.');
+    }
 
     return map${ctx.entityClass}(row);
   }
 
   async update(id: string, data: Update${ctx.entityClass}Data): Promise<${ctx.entityClass} | null> {
-    const updatePayload: Record<string, unknown> = {};
+    const updatePayload: Partial<${ctx.entityClass}Record> = {};
 
     if (data.name !== undefined) {
       updatePayload.name = data.name;
@@ -450,25 +463,55 @@ export class ${ctx.repositoryClass} implements ${ctx.repositoryInterfaceName} {
       return this.findById(id);
     }
 
-    const [row] = await this.knex<${ctx.entityClass}Row>(TABLE_NAME)
-      .where({ id })
-      .update({
-        ...updatePayload,
-        updated_at: this.knex.fn.now(),
-      })
-      .returning('*');
+    updatePayload.updatedAt = new Date();
+
+    const rows = await this.objxSession.execute(
+      ${ctx.modelClass}
+        .update(updatePayload)
+        .where(({ id: entityId }, op) => op.eq(entityId, id))
+        .returning(({ id, name, createdAt, updatedAt }) => [
+          id,
+          name,
+          createdAt,
+          updatedAt,
+        ]),
+    );
+    const row = rows[0];
 
     return row ? map${ctx.entityClass}(row) : null;
   }
 
   async delete(id: string): Promise<boolean> {
-    const deletedRows = await this.knex(TABLE_NAME)
-      .where({ id })
-      .del();
+    const deletedRows = await this.objxSession.execute(
+      ${ctx.modelClass}
+        .delete()
+        .where(({ id: entityId }, op) => op.eq(entityId, id)),
+    );
 
     return deletedRows > 0;
   }
 }
+`;
+}
+
+function createModelTemplate(ctx) {
+  return `import { col, defineModel, type InferModelShape } from '@qbobjx/core';
+import { createSnakeCaseNamingPlugin } from '@qbobjx/plugins';
+import { snowflakeIdColumn } from '@/shared/infrastructure/database/objx-columns';
+
+export const ${ctx.modelClass} = defineModel({
+  name: '${ctx.entityClass}',
+  table: '${ctx.moduleName}',
+  columns: {
+    id: snowflakeIdColumn().primary(),
+    name: col.text(),
+    createdAt: col.timestamp().generated(),
+    updatedAt: col.timestamp().generated(),
+  },
+  plugins: [createSnakeCaseNamingPlugin()],
+});
+
+export type ${ctx.entityClass}Record = InferModelShape<typeof ${ctx.modelClass}>;
 `;
 }
 
@@ -979,6 +1022,16 @@ function buildFilePlan(ctx) {
         moduleDir,
         'infrastructure',
         'persistence',
+        'models',
+        ctx.modelFileName,
+      ),
+      content: createModelTemplate(ctx),
+    },
+    {
+      path: path.join(
+        moduleDir,
+        'infrastructure',
+        'persistence',
         ctx.persistenceModuleFileName,
       ),
       content: createPersistenceModuleTemplate(ctx),
@@ -1137,7 +1190,7 @@ function main() {
     });
     console.log('');
     console.log('Notes:');
-    console.log('- Generated module follows the Zod + Knex pattern used by the project');
+    console.log('- Generated module follows the Zod + Objx pattern used by the project');
     console.log('- Generated entity starts with a default "name" field');
     console.log('- Create a migration after adjusting the entity fields');
     return;

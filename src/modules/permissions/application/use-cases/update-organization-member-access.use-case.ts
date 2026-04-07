@@ -3,9 +3,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { ReplaceOrganizationMemberAccessInput } from '@/modules/permissions/domain/repositories/permissions.repository.interface';
-import { PERMISSIONS_REPOSITORY } from '@/modules/permissions/domain/repositories/permissions.repository.interface';
-import type { IPermissionsRepository } from '@/modules/permissions/domain/repositories/permissions.repository.interface';
+import {
+  PERMISSIONS_REPOSITORY,
+  type IPermissionsRepository,
+  type ReplaceOrganizationMemberAccessInput,
+} from '@/modules/permissions/domain/repositories/permissions.repository.interface';
 
 @Injectable()
 export class UpdateOrganizationMemberAccessUseCase {

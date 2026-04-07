@@ -1,16 +1,18 @@
-/** @param {import('knex').Knex} knex */
-export async function up(knex) {
-  await knex.schema.createTable('organizations', (table) => {
-    table.bigInteger('id').primary();
-    table.string('name', 255).notNullable();
-    table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
-    table.timestamp('updated_at').notNullable().defaultTo(knex.fn.now());
+import { defineMigration } from '@qbobjx/codegen';
 
-    table.index(['name'], 'IDX_organizations_name');
-  });
-}
-
-/** @param {import('knex').Knex} knex */
-export async function down(knex) {
-  await knex.schema.dropTableIfExists('organizations');
-}
+export default defineMigration({
+  name: '20260328120000_create_organizations_table',
+  description: 'create organizations table',
+  up: [
+    `create table organizations (
+      id bigint primary key,
+      name varchar(255) not null,
+      created_at timestamp not null default now(),
+      updated_at timestamp not null default now()
+    );`,
+    'create index "IDX_organizations_name" on organizations (name);',
+  ],
+  down: [
+    'drop table if exists organizations;',
+  ],
+});

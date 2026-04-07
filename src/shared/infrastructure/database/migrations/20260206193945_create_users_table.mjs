@@ -1,17 +1,20 @@
-/** @param {import('knex').Knex} knex */
-export async function up(knex) {
-  await knex.schema.createTable('users', (table) => {
-    table.bigInteger('id').primary();
-    table.string('email', 255).notNullable().unique();
-    table.string('password', 255).notNullable();
-    table.string('name', 255).notNullable();
-    table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
-    table.timestamp('updated_at').notNullable().defaultTo(knex.fn.now());
-    table.index(['email'], 'IDX_users_email');
-  });
-}
+import { defineMigration } from '@qbobjx/codegen';
 
-/** @param {import('knex').Knex} knex */
-export async function down(knex) {
-  await knex.schema.dropTableIfExists('users');
-}
+export default defineMigration({
+  name: '20260206193945_create_users_table',
+  description: 'create users table',
+  up: [
+    `create table users (
+      id bigint primary key,
+      email varchar(255) not null unique,
+      password varchar(255) not null,
+      name varchar(255) not null,
+      created_at timestamp not null default now(),
+      updated_at timestamp not null default now()
+    );`,
+    'create index "IDX_users_email" on users (email);',
+  ],
+  down: [
+    'drop table if exists users;',
+  ],
+});

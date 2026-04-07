@@ -3,7 +3,6 @@ import {
   Inject,
   Injectable,
 } from '@nestjs/common';
-import type { Knex } from 'knex';
 import {
   isPermissionCode,
   isSystemRoleCode,
@@ -18,48 +17,58 @@ import type {
   ReplaceOrganizationMemberAccessInput,
 } from '@/modules/permissions/domain/repositories/permissions.repository.interface';
 import { generateSnowflakeId } from '@/shared/ids/snowflake-id.util';
-import { DatabaseRlsContextService } from '@/shared/infrastructure/database/database-rls-context.service';
-import { KNEX_CONNECTION } from '@/shared/infrastructure/database/database.constants';
-
-type MembershipRow = {
-  id: string;
-  role: string;
-};
+import { OBJX_SESSION } from '@/shared/infrastructure/database/database.tokens';
+import type { ObjxSession } from '@/shared/infrastructure/database/database.types';
+import {
+  OrganizationMembershipModel,
+  type OrganizationMembershipRecord,
+} from '@/modules/organizations/infrastructure/persistence/models/organization-membership.model';
+import { OrganizationMembershipRoleModel } from '@/modules/organizations/infrastructure/persistence/models/organization-membership-role.model';
+import {
+  OrganizationUserPermissionModel,
+} from '../models/organization-user-permission.model';
+import { PermissionActionModel } from '../models/permission-action.model';
+import { PermissionFeatureModel } from '../models/permission-feature.model';
+import { PermissionModel } from '../models/permission.model';
+import { RolePermissionModel } from '../models/role-permission.model';
+import { RoleModel, type RoleRecord } from '../models/role.model';
 
 @Injectable()
 export class PermissionsRepository implements IPermissionsRepository {
   constructor(
-    @Inject(KNEX_CONNECTION)
-    private readonly knex: Knex,
-    private readonly databaseRlsContextService: DatabaseRlsContextService,
+    @Inject(OBJX_SESSION)
+    private readonly objxSession: ObjxSession,
   ) {}
 
   async getCatalog(): Promise<PermissionCatalog> {
     const [features, actions, permissions, roles] = await Promise.all([
-      this.knex('permission_features')
-        .select('code', 'name', 'description')
-        .orderBy('code', 'asc'),
-      this.knex('permission_actions')
-        .select('code', 'name', 'description')
-        .orderBy('code', 'asc'),
-      this.knex('permissions as p')
-        .select(
-          'p.code',
-          'p.description',
-          {
-            featureCode: 'f.code',
-          },
-          {
-            actionCode: 'a.code',
-          },
-        )
-        .join('permission_features as f', 'f.id', 'p.feature_id')
-        .join('permission_actions as a', 'a.id', 'p.action_id')
-        .orderBy('p.code', 'asc'),
-      this.knex('roles')
-        .select('code', 'name', 'description', 'is_system')
-        .orderBy('code', 'asc'),
+      this.objxSession.execute(
+        PermissionFeatureModel
+          .query()
+          .orderBy(({ code }) => code, 'asc'),
+      ),
+      this.objxSession.execute(
+        PermissionActionModel
+          .query()
+          .orderBy(({ code }) => code, 'asc'),
+      ),
+      this.objxSession.execute(
+        PermissionModel
+          .query()
+          .orderBy(({ code }) => code, 'asc'),
+      ),
+      this.objxSession.execute(
+        RoleModel
+          .query()
+          .orderBy(({ code }) => code, 'asc'),
+      ),
     ]);
+    const featureCodeById = new Map(
+      features.map((feature) => [feature.id, feature.code]),
+    );
+    const actionCodeById = new Map(
+      actions.map((action) => [action.id, action.code]),
+    );
 
     return {
       features: features.map((feature) => ({
@@ -76,17 +85,21 @@ export class PermissionsRepository implements IPermissionsRepository {
         .filter((permission) => isPermissionCode(permission.code))
         .map((permission) => ({
           code: permission.code as PermissionCode,
-          featureCode: permission.featureCode,
-          actionCode: permission.actionCode,
+          featureCode: featureCodeById.get(permission.featureId) ?? '',
+          actionCode: actionCodeById.get(permission.actionId) ?? '',
           description: permission.description,
-        })),
+        }))
+        .filter(
+          (permission) =>
+            permission.featureCode.length > 0 && permission.actionCode.length > 0,
+        ),
       roles: roles
         .filter((role) => isSystemRoleCode(role.code))
         .map((role) => ({
           code: role.code as SystemRoleCode,
           name: role.name,
           description: role.description,
-          isSystem: Boolean(role.isSystem),
+          isSystem: role.isSystem,
         })),
     };
   }
@@ -95,17 +108,19 @@ export class PermissionsRepository implements IPermissionsRepository {
     userId: string,
     organizationId: string,
   ): Promise<OrganizationPermissionSnapshot | null> {
-    const membership = await this.findMembership(
-      this.knex,
-      userId,
-      organizationId,
-    );
+    return this.objxSession.transaction(async (trxSession) => {
+      const membership = await this.findMembership(
+        trxSession,
+        userId,
+        organizationId,
+      );
 
-    if (!membership) {
-      return null;
-    }
+      if (!membership) {
+        return null;
+      }
 
-    return this.buildSnapshot(this.knex, membership, userId, organizationId);
+      return this.buildSnapshot(trxSession, membership, userId, organizationId);
+    });
   }
 
   async replaceOrganizationMemberAccess(
@@ -123,31 +138,37 @@ export class PermissionsRepository implements IPermissionsRepository {
       ).values(),
     );
 
-    const membership = await this.findMembership(
-      this.knex,
-      userId,
-      organizationId,
-    );
+    return this.objxSession.transaction(async (trxSession) => {
+      const membership = await this.findMembership(
+        trxSession,
+        userId,
+        organizationId,
+      );
 
-    if (!membership) {
-      return null;
-    }
-
-    return this.knex.transaction(async (trx) => {
-      await this.databaseRlsContextService.applyToTransaction(trx);
+      if (!membership) {
+        return null;
+      }
 
       const roleRows = normalizedRoleCodes.length > 0
-        ? await trx('roles')
-          .select('id', 'code')
-          .whereIn('code', normalizedRoleCodes)
+        ? await trxSession.execute(
+          RoleModel
+            .query()
+            .where(({ code }, op) => op.in(code, normalizedRoleCodes))
+            .orderBy(({ code }) => code, 'asc'),
+        )
         : [];
       const permissionRows = normalizedOverrides.length > 0
-        ? await trx('permissions')
-          .select('id', 'code')
-          .whereIn(
-            'code',
-            normalizedOverrides.map((override) => override.permissionCode),
-          )
+        ? await trxSession.execute(
+          PermissionModel
+            .query()
+            .where(({ code }, op) =>
+              op.in(
+                code,
+                normalizedOverrides.map((override) => override.permissionCode),
+              ),
+            )
+            .orderBy(({ code }) => code, 'asc'),
+        )
         : [];
 
       if (roleRows.length !== normalizedRoleCodes.length) {
@@ -172,40 +193,50 @@ export class PermissionsRepository implements IPermissionsRepository {
         );
       }
 
-      await trx('organization_membership_roles')
-        .where({ membership_id: membership.id })
-        .delete();
+      await trxSession.execute(
+        OrganizationMembershipRoleModel
+          .delete()
+          .where(({ membershipId }, op) => op.eq(membershipId, membership.id)),
+      );
 
       if (roleRows.length > 0) {
-        await trx('organization_membership_roles').insert(
-          roleRows.map((role) => ({
-            id: generateSnowflakeId(),
-            membership_id: membership.id,
-            role_id: role.id,
-          })),
+        await trxSession.execute(
+          OrganizationMembershipRoleModel.insert(
+            roleRows.map((role) => ({
+              id: generateSnowflakeId(),
+              membershipId: membership.id,
+              roleId: role.id,
+            })),
+          ),
         );
       }
 
-      await trx('organization_user_permissions')
-        .where({
-          organization_id: organizationId,
-          user_id: userId,
-        })
-        .delete();
+      await trxSession.execute(
+        OrganizationUserPermissionModel
+          .delete()
+          .where(({ organizationId: currentOrganizationId, userId: currentUserId }, op) =>
+            op.and(
+              op.eq(currentOrganizationId, organizationId),
+              op.eq(currentUserId, userId),
+            ),
+          ),
+      );
 
       if (normalizedOverrides.length > 0) {
         const permissionIdByCode = new Map(
           permissionRows.map((permission) => [permission.code, permission.id]),
         );
 
-        await trx('organization_user_permissions').insert(
-          normalizedOverrides.map((override) => ({
-            id: generateSnowflakeId(),
-            organization_id: organizationId,
-            user_id: userId,
-            permission_id: permissionIdByCode.get(override.permissionCode),
-            effect: override.effect,
-          })),
+        await trxSession.execute(
+          OrganizationUserPermissionModel.insert(
+            normalizedOverrides.map((override) => ({
+              id: generateSnowflakeId(),
+              organizationId,
+              userId,
+              permissionId: permissionIdByCode.get(override.permissionCode)!,
+              effect: override.effect,
+            })),
+          ),
         );
       }
 
@@ -213,12 +244,14 @@ export class PermissionsRepository implements IPermissionsRepository {
         normalizedRoleCodes,
       );
 
-      await trx('organization_memberships')
-        .where({ id: membership.id })
-        .update({ role: legacyRole });
+      await trxSession.execute(
+        OrganizationMembershipModel
+          .update({ role: legacyRole })
+          .where(({ id }, op) => op.eq(id, membership.id)),
+      );
 
       return this.buildSnapshot(
-        trx,
+        trxSession,
         { ...membership, role: legacyRole },
         userId,
         organizationId,
@@ -227,51 +260,92 @@ export class PermissionsRepository implements IPermissionsRepository {
   }
 
   private async findMembership(
-    executor: Knex | Knex.Transaction,
+    executor: ObjxSession,
     userId: string,
     organizationId: string,
-  ): Promise<MembershipRow | undefined> {
-    return executor('organization_memberships')
-      .select('id', 'role')
-      .where({
-        user_id: userId,
-        organization_id: organizationId,
-      })
-      .first();
+  ): Promise<OrganizationMembershipRecord | null> {
+    const rows = await executor.execute(
+      OrganizationMembershipModel
+        .query()
+        .where(({ userId: membershipUserId, organizationId: membershipOrganizationId }, op) =>
+          op.and(
+            op.eq(membershipUserId, userId),
+            op.eq(membershipOrganizationId, organizationId),
+          ),
+        )
+        .limit(1),
+    );
+
+    return rows[0] ?? null;
   }
 
   private async buildSnapshot(
-    executor: Knex | Knex.Transaction,
-    membership: MembershipRow,
+    executor: ObjxSession,
+    membership: OrganizationMembershipRecord,
     userId: string,
     organizationId: string,
   ): Promise<OrganizationPermissionSnapshot> {
-    const [roleRows, overrideRows, inheritedPermissionRows] = await Promise.all([
-      executor('organization_membership_roles as omr')
-        .join('roles as r', 'r.id', 'omr.role_id')
-        .select('r.code')
-        .where('omr.membership_id', membership.id)
-        .orderBy('r.code', 'asc'),
-      executor('organization_user_permissions as oup')
-        .join('permissions as p', 'p.id', 'oup.permission_id')
-        .select('p.code as permission_code', 'oup.effect')
-        .where('oup.organization_id', organizationId)
-        .where('oup.user_id', userId)
-        .orderBy('p.code', 'asc'),
-      executor('organization_membership_roles as omr')
-        .join('role_permissions as rp', 'rp.role_id', 'omr.role_id')
-        .join('permissions as p', 'p.id', 'rp.permission_id')
-        .distinct('p.code')
-        .where('omr.membership_id', membership.id)
-        .orderBy('p.code', 'asc'),
+    const [membershipRoleRows, overrideRows] = await Promise.all([
+      executor.execute(
+        OrganizationMembershipRoleModel
+          .query()
+          .where(({ membershipId }, op) => op.eq(membershipId, membership.id)),
+      ),
+      executor.execute(
+        OrganizationUserPermissionModel
+          .query()
+          .where(({ organizationId: currentOrganizationId, userId: currentUserId }, op) =>
+            op.and(
+              op.eq(currentOrganizationId, organizationId),
+              op.eq(currentUserId, userId),
+            ),
+          ),
+      ),
     ]);
+    const roleIds = Array.from(
+      new Set(membershipRoleRows.map((membershipRole) => membershipRole.roleId)),
+    );
+    const [roleRows, rolePermissionRows] = await Promise.all([
+      roleIds.length > 0
+        ? executor.execute(
+          RoleModel
+            .query()
+            .where(({ id }, op) => op.in(id, roleIds))
+            .orderBy(({ code }) => code, 'asc'),
+        )
+        : Promise.resolve([] as readonly RoleRecord[]),
+      roleIds.length > 0
+        ? executor.execute(
+          RolePermissionModel
+            .query()
+            .where(({ roleId }, op) => op.in(roleId, roleIds)),
+        )
+        : Promise.resolve([]),
+    ]);
+    const permissionIds = Array.from(
+      new Set([
+        ...overrideRows.map((override) => override.permissionId),
+        ...rolePermissionRows.map((rolePermission) => rolePermission.permissionId),
+      ]),
+    );
+    const permissionRows = permissionIds.length > 0
+      ? await executor.execute(
+        PermissionModel
+          .query()
+          .where(({ id }, op) => op.in(id, permissionIds)),
+      )
+      : [];
+    const permissionCodeById = new Map(
+      permissionRows.map((permission) => [permission.id, permission.code]),
+    );
 
     const roleCodes = roleRows
       .map((role) => role.code)
-      .filter(isSystemRoleCode);
+      .filter(isSystemRoleCode)
+      .sort();
     const overrides = overrideRows
       .map((override) => ({
-        permissionCode: override.permissionCode,
+        permissionCode: permissionCodeById.get(override.permissionId),
         effect: override.effect,
       }))
       .filter(
@@ -279,12 +353,14 @@ export class PermissionsRepository implements IPermissionsRepository {
           permissionCode: PermissionCode;
           effect: 'allow' | 'deny';
         } =>
+          !!override.permissionCode &&
           isPermissionCode(override.permissionCode) &&
           (override.effect === 'allow' || override.effect === 'deny'),
-      );
+      )
+      .sort((a, b) => a.permissionCode.localeCompare(b.permissionCode));
     const effectivePermissionCodes = new Set<PermissionCode>(
-      inheritedPermissionRows
-        .map((permission) => permission.code)
+      rolePermissionRows
+        .map((rolePermission) => permissionCodeById.get(rolePermission.permissionId))
         .filter(isPermissionCode),
     );
 

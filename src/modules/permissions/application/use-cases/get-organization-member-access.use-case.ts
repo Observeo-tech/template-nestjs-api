@@ -3,8 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PERMISSIONS_REPOSITORY } from '@/modules/permissions/domain/repositories/permissions.repository.interface';
-import type { IPermissionsRepository } from '@/modules/permissions/domain/repositories/permissions.repository.interface';
+import {
+  PERMISSIONS_REPOSITORY,
+  type IPermissionsRepository,
+} from '@/modules/permissions/domain/repositories/permissions.repository.interface';
 
 @Injectable()
 export class GetOrganizationMemberAccessUseCase {

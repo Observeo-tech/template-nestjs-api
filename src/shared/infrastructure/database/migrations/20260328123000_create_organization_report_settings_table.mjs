@@ -1,36 +1,28 @@
-/** @param {import('knex').Knex} knex */
-export async function up(knex) {
-  await knex.schema.createTable('organization_report_settings', (table) => {
-    table
-      .bigInteger('organization_id')
-      .primary()
-      .references('id')
-      .inTable('organizations')
-      .onDelete('CASCADE');
-    table.string('display_name', 255).nullable();
-    table.text('header_text').nullable();
-    table.text('footer_text').nullable();
-    table.text('legal_text').nullable();
-    table.string('primary_color', 32).nullable();
-    table.string('secondary_color', 32).nullable();
-    table.string('logo_file_name', 255).nullable();
-    table.string('logo_content_type', 128).nullable();
-    table.integer('logo_size_bytes').nullable();
-    table.binary('logo_blob').nullable();
-    table
-      .bigInteger('updated_by')
-      .nullable()
-      .references('id')
-      .inTable('users')
-      .onDelete('SET NULL');
-    table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
-    table.timestamp('updated_at').notNullable().defaultTo(knex.fn.now());
+import { defineMigration } from '@qbobjx/codegen';
 
-    table.index(['updated_by'], 'IDX_organization_report_settings_updated_by');
-  });
-}
-
-/** @param {import('knex').Knex} knex */
-export async function down(knex) {
-  await knex.schema.dropTableIfExists('organization_report_settings');
-}
+export default defineMigration({
+  name: '20260328123000_create_organization_report_settings_table',
+  description: 'create organization report settings table',
+  up: [
+    `create table organization_report_settings (
+      organization_id bigint primary key references organizations(id) on delete cascade,
+      display_name varchar(255) null,
+      header_text text null,
+      footer_text text null,
+      legal_text text null,
+      primary_color varchar(32) null,
+      secondary_color varchar(32) null,
+      logo_file_name varchar(255) null,
+      logo_content_type varchar(128) null,
+      logo_size_bytes integer null,
+      logo_blob bytea null,
+      updated_by bigint null references users(id) on delete set null,
+      created_at timestamp not null default now(),
+      updated_at timestamp not null default now()
+    );`,
+    'create index "IDX_organization_report_settings_updated_by" on organization_report_settings (updated_by);',
+  ],
+  down: [
+    'drop table if exists organization_report_settings;',
+  ],
+});

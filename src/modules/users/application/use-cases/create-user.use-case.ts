@@ -2,11 +2,11 @@ import { ConflictException, Inject, Injectable, Logger } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { EmailQueueService } from '@/modules/emails/application/services/email-queue.service';
 import { toPublicUser } from '@/modules/users/domain/entities/user.entity';
-import type {
-  CreateUserData,
-  IUserRepository,
+import {
+  USER_REPOSITORY,
+  type CreateUserData,
+  type IUserRepository,
 } from '@/modules/users/domain/repositories/user.repository.interface';
-import { USER_REPOSITORY } from '@/modules/users/domain/repositories/user.repository.interface';
 
 export interface CreateUserInput extends Omit<CreateUserData, 'password'> {
   password: string;

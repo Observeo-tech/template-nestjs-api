@@ -1,4 +1,4 @@
-# 🚀 Quick Start - Auth + Users com Zod + Knex
+# 🚀 Quick Start - Auth + Users com Zod + Objx
 
 ## 📋 O que foi implementado
 
@@ -6,8 +6,8 @@
 ✅ Módulos organizados em arquitetura feature-first
 ✅ Padrão Use Cases aplicado
 ✅ Exemplo de login com validação Zod
-✅ Banco com `Knex`
-✅ CRUD de `users` com `use-cases + Knex`
+✅ Banco com `Objx`
+✅ CRUD de `users` com `use-cases + Objx`
 ✅ Documentação completa
 
 ## 🎯 Estrutura Criada

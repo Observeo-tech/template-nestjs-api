@@ -1,7 +1,9 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { toPublicUser } from '@/modules/users/domain/entities/user.entity';
-import type { IUserRepository } from '@/modules/users/domain/repositories/user.repository.interface';
-import { USER_REPOSITORY } from '@/modules/users/domain/repositories/user.repository.interface';
+import {
+  USER_REPOSITORY,
+  type IUserRepository,
+} from '@/modules/users/domain/repositories/user.repository.interface';
 
 @Injectable()
 export class FindUserUseCase {

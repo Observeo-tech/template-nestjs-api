@@ -1,18 +1,20 @@
-/** @param {import('knex').Knex} knex */
-export async function up(knex) {
-  await knex.schema.createTable('password_reset_tokens', (table) => {
-    table.bigInteger('id').primary();
-    table.bigInteger('user_id').notNullable().references('id').inTable('users').onDelete('CASCADE');
-    table.string('token_hash', 255).notNullable().unique();
-    table.timestamp('expires_at').notNullable();
-    table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
+import { defineMigration } from '@qbobjx/codegen';
 
-    table.index(['user_id'], 'IDX_password_reset_tokens_user_id');
-    table.index(['expires_at'], 'IDX_password_reset_tokens_expires_at');
-  });
-}
-
-/** @param {import('knex').Knex} knex */
-export async function down(knex) {
-  await knex.schema.dropTableIfExists('password_reset_tokens');
-}
+export default defineMigration({
+  name: '20260326120000_create_password_reset_tokens_table',
+  description: 'create password reset tokens table',
+  up: [
+    `create table password_reset_tokens (
+      id bigint primary key,
+      user_id bigint not null references users(id) on delete cascade,
+      token_hash varchar(255) not null unique,
+      expires_at timestamp not null,
+      created_at timestamp not null default now()
+    );`,
+    'create index "IDX_password_reset_tokens_user_id" on password_reset_tokens (user_id);',
+    'create index "IDX_password_reset_tokens_expires_at" on password_reset_tokens (expires_at);',
+  ],
+  down: [
+    'drop table if exists password_reset_tokens;',
+  ],
+});

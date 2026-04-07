@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import { defineSeed } from '@qbobjx/codegen';
 
 const DEFAULT_ADMIN_EMAIL = 'admin@teste.local';
 const DEFAULT_ADMIN_NAME = 'Administrador';
@@ -7,7 +8,6 @@ const DEFAULT_ADMIN_ID = '710000000000000001';
 const DEFAULT_ORGANIZATION_ID = '710000000000000101';
 const DEFAULT_ORGANIZATION_MEMBERSHIP_ID = '710000000000000201';
 
-/** @returns {{ email: string, name: string, password: string }} */
 function resolveAdminSeedConfig() {
   return {
     email: process.env.SEED_ADMIN_EMAIL || DEFAULT_ADMIN_EMAIL,
@@ -22,85 +22,96 @@ function resolveOrganizationSeedConfig() {
   };
 }
 
-/** @param {import('knex').Knex} knex */
-export async function seed(knex) {
-  const admin = resolveAdminSeedConfig();
-  const organization = resolveOrganizationSeedConfig();
-  const hashedPassword = await bcrypt.hash(admin.password, 12);
-
-  await knex('users')
-    .insert({
-      id: DEFAULT_ADMIN_ID,
-      email: admin.email,
-      name: admin.name,
-      password: hashedPassword,
-      created_at: knex.fn.now(),
-      updated_at: knex.fn.now(),
-    })
-    .onConflict('email')
-    .merge({
-      name: admin.name,
-      password: hashedPassword,
-      updated_at: knex.fn.now(),
-    });
-
-  if (organization.name) {
-    await knex('organizations')
-      .insert({
-        id: DEFAULT_ORGANIZATION_ID,
-        name: organization.name,
-        created_at: knex.fn.now(),
-        updated_at: knex.fn.now(),
-      })
-      .onConflict('id')
-      .merge({
-        name: organization.name,
-        updated_at: knex.fn.now(),
-      });
-
-    await knex('organization_memberships')
-      .insert({
-        id: DEFAULT_ORGANIZATION_MEMBERSHIP_ID,
-        organization_id: DEFAULT_ORGANIZATION_ID,
-        user_id: DEFAULT_ADMIN_ID,
-        role: 'owner',
-        created_at: knex.fn.now(),
-      })
-      .onConflict('id')
-      .merge({
-        organization_id: DEFAULT_ORGANIZATION_ID,
-        user_id: DEFAULT_ADMIN_ID,
-        role: 'owner',
-      });
-  }
-
-  return {
-    email: admin.email,
-    organizationId: organization.name ? DEFAULT_ORGANIZATION_ID : null,
-  };
+function sqlString(value) {
+  return `'${String(value).replace(/'/g, "''")}'`;
 }
 
-/**
- * @param {import('knex').Knex} knex
- * @param {{ email?: string, organizationId?: string | null } | null | undefined} meta
- */
-export async function down(knex, meta) {
-  const admin = resolveAdminSeedConfig();
-  const organization = resolveOrganizationSeedConfig();
-  const email = meta?.email || admin.email;
-  const organizationId = meta?.organizationId || (organization.name ? DEFAULT_ORGANIZATION_ID : null);
+export default defineSeed({
+  name: '20260327120000_seed_bootstrap_admin_user',
+  description: 'seed bootstrap admin user',
+  async run(context) {
+    const admin = resolveAdminSeedConfig();
+    const organization = resolveOrganizationSeedConfig();
+    const hashedPassword = await bcrypt.hash(admin.password, 12);
 
-  if (organizationId) {
-    await knex('organization_memberships')
-      .where({ id: DEFAULT_ORGANIZATION_MEMBERSHIP_ID })
-      .delete();
+    await context.execute(`
+      insert into users (
+        id,
+        email,
+        name,
+        password
+      )
+      values (
+        ${DEFAULT_ADMIN_ID},
+        ${sqlString(admin.email)},
+        ${sqlString(admin.name)},
+        ${sqlString(hashedPassword)}
+      )
+      on conflict (email) do update
+      set
+        name = excluded.name,
+        password = excluded.password,
+        updated_at = now();
+    `);
 
-    await knex('organizations')
-      .where({ id: organizationId })
-      .delete();
-  }
+    if (!organization.name) {
+      return;
+    }
 
-  await knex('users')
-    .where({ email })
-    .delete();
-}
+    await context.execute(`
+      insert into organizations (
+        id,
+        name
+      )
+      values (
+        ${DEFAULT_ORGANIZATION_ID},
+        ${sqlString(organization.name)}
+      )
+      on conflict (id) do update
+      set
+        name = excluded.name,
+        updated_at = now();
+    `);
+
+    await context.execute(`
+      insert into organization_memberships (
+        id,
+        organization_id,
+        user_id,
+        role
+      )
+      values (
+        ${DEFAULT_ORGANIZATION_MEMBERSHIP_ID},
+        ${DEFAULT_ORGANIZATION_ID},
+        ${DEFAULT_ADMIN_ID},
+        'owner'
+      )
+      on conflict (id) do update
+      set
+        organization_id = excluded.organization_id,
+        user_id = excluded.user_id,
+        role = excluded.role;
+    `);
+  },
+  async revert(context) {
+    const admin = resolveAdminSeedConfig();
+    const organization = resolveOrganizationSeedConfig();
+
+    if (organization.name) {
+      await context.execute(`
+        delete from organization_memberships
+        where id = ${DEFAULT_ORGANIZATION_MEMBERSHIP_ID};
+      `);
+
+      await context.execute(`
+        delete from organizations
+        where id = ${DEFAULT_ORGANIZATION_ID};
+      `);
+    }
+
+    await context.execute(`
+      delete from users
+      where email = ${sqlString(admin.email)};
+    `);
+  },
+});

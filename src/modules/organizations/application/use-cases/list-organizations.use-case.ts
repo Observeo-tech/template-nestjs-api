@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { IOrganizationRepository } from '@/modules/organizations/domain/repositories/organization.repository.interface';
-import { ORGANIZATION_REPOSITORY } from '@/modules/organizations/domain/repositories/organization.repository.interface';
+import {
+  ORGANIZATION_REPOSITORY,
+  type IOrganizationRepository,
+} from '@/modules/organizations/domain/repositories/organization.repository.interface';
 
 @Injectable()
 export class ListOrganizationsUseCase {

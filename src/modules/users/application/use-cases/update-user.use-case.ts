@@ -6,11 +6,11 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { toPublicUser } from '@/modules/users/domain/entities/user.entity';
-import type {
-  IUserRepository,
-  UpdateUserData,
+import {
+  USER_REPOSITORY,
+  type IUserRepository,
+  type UpdateUserData,
 } from '@/modules/users/domain/repositories/user.repository.interface';
-import { USER_REPOSITORY } from '@/modules/users/domain/repositories/user.repository.interface';
 
 export interface UpdateUserInput extends UpdateUserData {}
 

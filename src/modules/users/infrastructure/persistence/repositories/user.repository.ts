@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { expr } from '@qbobjx/core';
 import { User } from '@/modules/users/domain/entities/user.entity';
 import {
   CreateUserData,
@@ -7,101 +8,164 @@ import {
   IUserRepository,
   UpdateUserData,
 } from '@/modules/users/domain/repositories/user.repository.interface';
-import { UserModel } from '../models/user.model';
+import { generateSnowflakeId } from '@/shared/ids/snowflake-id.util';
+import { OBJX_SESSION } from '@/shared/infrastructure/database/database.tokens';
+import type { ObjxSession } from '@/shared/infrastructure/database/database.types';
+import {
+  OrganizationMembershipModel,
+  type OrganizationMembershipRecord,
+} from '@/modules/organizations/infrastructure/persistence/models/organization-membership.model';
+import { UserModel, type UserRecord } from '../models/user.model';
 
 @Injectable()
 export class UserRepository implements IUserRepository {
-  async findByEmail(email: string): Promise<User | null> {
-    const user = await UserModel.query().findOne({ email });
+  constructor(
+    @Inject(OBJX_SESSION)
+    private readonly objxSession: ObjxSession,
+  ) {}
 
-    return user ? user.toDomain() : null;
+  async findByEmail(email: string): Promise<User | null> {
+    const rows = await this.objxSession.execute(
+      UserModel
+        .query()
+        .where(({ email: userEmail }, op) => op.eq(userEmail, email))
+        .limit(1),
+    );
+    const row = rows[0];
+
+    return row ? mapUserRow(row) : null;
   }
 
   async findByGoogleId(googleId: string): Promise<User | null> {
-    const user = await UserModel.query().findOne({ googleId });
+    const rows = await this.objxSession.execute(
+      UserModel
+        .query()
+        .where(({ googleId: userGoogleId }, op) => op.eq(userGoogleId, googleId))
+        .limit(1),
+    );
+    const row = rows[0];
 
-    return user ? user.toDomain() : null;
+    return row ? mapUserRow(row) : null;
   }
 
   async findById(
     id: string,
     organizationId?: string,
   ): Promise<User | null> {
-    const query = UserModel.query()
-      .alias('u')
-      .select('u.*')
-      .where('u.id', id);
-
     if (organizationId) {
-      query
-        .join('organization_memberships as om', 'om.user_id', 'u.id')
-        .where('om.organization_id', organizationId);
+      const membership = await this.findMembershipForUserInOrganization(
+        id,
+        organizationId,
+      );
+
+      if (!membership) {
+        return null;
+      }
     }
 
-    const user = await query.first();
+    const rows = await this.objxSession.execute(
+      UserModel
+        .query()
+        .where(({ id: userId }, op) => op.eq(userId, id))
+        .limit(1),
+    );
+    const row = rows[0];
 
-    return user ? user.toDomain() : null;
+    return row ? mapUserRow(row) : null;
   }
 
   async findAll(filters: FindAllUsersFilters): Promise<FindAllUsersResult> {
-    const query = UserModel.query().alias('u');
     const shouldPaginate = filters.paginate ?? true;
     const pageCount = filters.pageCount ?? 1;
     const recordsPerPage = filters.recordsPerPage ?? 25;
+    const organizationUserIds = filters.organizationId
+      ? await this.findOrganizationUserIds(filters.organizationId)
+      : null;
 
-    if (filters.organizationId) {
-      query
-        .join('organization_memberships as om', 'om.user_id', 'u.id')
-        .where('om.organization_id', filters.organizationId);
+    if (organizationUserIds && organizationUserIds.length === 0) {
+      return {
+        data: [],
+        total: 0,
+      };
+    }
+
+    let countQuery = UserModel.query();
+    let usersQuery = UserModel.query()
+      .orderBy(({ createdAt }) => createdAt, 'desc');
+
+    if (organizationUserIds) {
+      countQuery = countQuery.where(({ id }, op) => op.in(id, organizationUserIds));
+      usersQuery = usersQuery.where(({ id }, op) => op.in(id, organizationUserIds));
     }
 
     if (filters.id) {
-      query.where('u.id', filters.id);
+      countQuery = countQuery.where(({ id }, op) => op.eq(id, filters.id!));
+      usersQuery = usersQuery.where(({ id }, op) => op.eq(id, filters.id!));
     }
 
     if (filters.email) {
-      query.where('u.email', filters.email);
+      countQuery = countQuery.where(({ email }, op) => op.eq(email, filters.email!));
+      usersQuery = usersQuery.where(({ email }, op) => op.eq(email, filters.email!));
     }
 
     if (filters.name) {
-      query.where('u.name', filters.name);
+      countQuery = countQuery.where(({ name }, op) => op.eq(name, filters.name!));
+      usersQuery = usersQuery.where(({ name }, op) => op.eq(name, filters.name!));
     }
 
-    const total = await query.clone().resultSize();
-
-    const usersQuery = query
-      .clone()
-      .select('u.*')
-      .orderBy('u.createdAt', 'desc');
-
     if (shouldPaginate) {
-      usersQuery
+      usersQuery = usersQuery
         .offset((pageCount - 1) * recordsPerPage)
         .limit(recordsPerPage);
     }
 
-    const users = await usersQuery;
+    const [countRows, users] = await Promise.all([
+      this.objxSession.execute(
+        countQuery.selectExpr('total', ({ id }) => expr.count<number>(id)),
+      ),
+      this.objxSession.execute(usersQuery),
+    ]);
+    const total = Number(countRows[0]?.total ?? 0);
 
     return {
-      data: users.map(user => user.toDomain()),
+      data: users.map((row) => mapUserRow(row)),
       total,
     };
   }
 
   async create(data: CreateUserData): Promise<User> {
-    const user = await UserModel.query().insertAndFetch({
-      email: data.email,
-      password: data.password,
-      googleId: data.googleId,
-      avatarUrl: data.avatarUrl,
-      name: data.name,
-    });
+    const rows = await this.objxSession.execute(
+      UserModel
+        .insert({
+          id: generateSnowflakeId(),
+          email: data.email,
+          password: data.password ?? null,
+          googleId: data.googleId ?? null,
+          avatarUrl: data.avatarUrl ?? null,
+          name: data.name,
+        })
+        .returning(({ id, email, password, googleId, avatarUrl, name, createdAt, updatedAt }) => [
+          id,
+          email,
+          password,
+          googleId,
+          avatarUrl,
+          name,
+          createdAt,
+          updatedAt,
+        ]),
+    );
+    const row = rows[0];
 
-    return user.toDomain();
+    if (!row) {
+      throw new Error('User insert did not return a row.');
+    }
+
+    return mapUserRow(row);
   }
 
   async update(id: string, data: UpdateUserData): Promise<User | null> {
-    const updatePayload: Record<string, unknown> = {};
+    const updatePayload: Partial<UserRecord> = {};
 
     if (data.email !== undefined) {
       updatePayload.email = data.email;
@@ -127,25 +191,81 @@ export class UserRepository implements IUserRepository {
       return this.findById(id);
     }
 
-    const knex = UserModel.knex();
+    updatePayload.updatedAt = new Date();
 
-    if (!knex) {
-      throw new Error('Objection is not bound to a Knex connection.');
-    }
+    const rows = await this.objxSession.execute(
+      UserModel
+        .update(updatePayload)
+        .where(({ id: userId }, op) => op.eq(userId, id))
+        .returning(({ id, email, password, googleId, avatarUrl, name, createdAt, updatedAt }) => [
+          id,
+          email,
+          password,
+          googleId,
+          avatarUrl,
+          name,
+          createdAt,
+          updatedAt,
+        ]),
+    );
+    const row = rows[0];
 
-    const user = await UserModel.query().patchAndFetchById(id, {
-      ...updatePayload,
-      updatedAt: knex.fn.now(),
-    });
-
-    return user ? user.toDomain() : null;
+    return row ? mapUserRow(row) : null;
   }
 
   async delete(id: string): Promise<boolean> {
-    const deletedRows = await UserModel.query()
-      .where({ id })
-      .delete();
+    const deletedRows = await this.objxSession.execute(
+      UserModel
+        .delete()
+        .where(({ id: userId }, op) => op.eq(userId, id)),
+    );
 
     return deletedRows > 0;
   }
+
+  private async findMembershipForUserInOrganization(
+    userId: string,
+    organizationId: string,
+  ): Promise<OrganizationMembershipRecord | null> {
+    const rows = await this.objxSession.execute(
+      OrganizationMembershipModel
+        .query()
+        .where(({ userId: membershipUserId, organizationId: membershipOrganizationId }, op) =>
+          op.and(
+            op.eq(membershipUserId, userId),
+            op.eq(membershipOrganizationId, organizationId),
+          ),
+        )
+        .limit(1),
+    );
+
+    return rows[0] ?? null;
+  }
+
+  private async findOrganizationUserIds(
+    organizationId: string,
+  ): Promise<string[]> {
+    const memberships = await this.objxSession.execute(
+      OrganizationMembershipModel
+        .query()
+        .where(({ organizationId: membershipOrganizationId }, op) =>
+          op.eq(membershipOrganizationId, organizationId),
+        ),
+    );
+
+    return Array.from(new Set(memberships.map((membership) => membership.userId)));
+  }
+}
+
+function mapUserRow(row: UserRecord): User {
+  return new User({
+    id: row.id,
+    email: row.email,
+    password: row.password,
+    googleId: row.googleId,
+    avatarUrl: row.avatarUrl,
+    name: row.name,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  });
 }
