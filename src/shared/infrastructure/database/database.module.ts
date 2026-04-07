@@ -1,4 +1,4 @@
-import { Global, Injectable, Module, OnApplicationShutdown } from '@nestjs/common';
+import { Global, Injectable, Logger, Module, OnApplicationShutdown } from '@nestjs/common';
 import { createExecutionContextManager } from '@qbobjx/core';
 import { createPostgresSession } from '@qbobjx/postgres-driver';
 import { Pool, type PoolConfig } from 'pg';
@@ -37,6 +37,14 @@ export class DatabaseService implements OnApplicationShutdown {
           },
         ],
       },
+      observers:
+        envConfig.isProduction
+          ? undefined
+          : [
+            {
+              onQueryStart: (event) => Logger.debug(`Running query: ${event.compiledQuery.sql}`)
+            }
+          ]
     });
   }
 
@@ -73,7 +81,7 @@ export class DatabaseService implements OnApplicationShutdown {
     OBJX_SESSION,
   ],
 })
-export class DatabaseModule {}
+export class DatabaseModule { }
 
 function createPgPoolConfig(): PoolConfig {
   const defaultDatabaseName = process.env.APP_SLUG || 'api';
